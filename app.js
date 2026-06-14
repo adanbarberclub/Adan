@@ -28,7 +28,8 @@ const CONFIG = {
         '13:00', '14:00', '15:00', '16:00',
         '17:00', '18:00', '19:00'
     ],
-    storageKey: 'adam_barber_bookings'
+    storageKey: 'adam_barber_bookings',
+    deletedStorageKey: 'adam_barber_deleted_bookings'
 };
 
 const app = {
@@ -42,6 +43,7 @@ const app = {
         customerPhone: '',
         viewMonth: new Date().getMonth(),
         viewYear: new Date().getFullYear(),
+        showDeleted: false,
     },
 
     init() {
@@ -304,6 +306,11 @@ const app = {
         return data ? JSON.parse(data) : [];
     },
 
+    getDeletedBookings() {
+        const data = localStorage.getItem(CONFIG.deletedStorageKey);
+        return data ? JSON.parse(data) : [];
+    },
+
     isSlotTaken(date, time, barberId) {
         if (!date || !time) return false;
         const bookings = this.getBookings();
@@ -415,6 +422,48 @@ const app = {
         document.getElementById('staff-modal').classList.add('hidden');
     },
 
+    handleBookingAction(index) {
+        const isDeletedView = this.state.showDeleted;
+        const currentList = isDeletedView ? this.getDeletedBookings() : this.getBookings();
+        const booking = currentList[index];
+
+        if (!isDeletedView) {
+            if (confirm(`¿Estás seguro de que deseas eliminar la cita de ${booking.customerName}?`)) {
+                const active = this.getBookings();
+                const deleted = this.getDeletedBookings();
+
+                active.splice(index, 1);
+                deleted.push(booking);
+
+                localStorage.setItem(CONFIG.storageKey, JSON.stringify(active));
+                localStorage.setItem(CONFIG.deletedStorageKey, JSON.stringify(deleted));
+                this.renderStaffBookings();
+            }
+        } else {
+            if (confirm(`¿Deseas restaurar la cita de ${booking.customerName}?`)) {
+                const active = this.getBookings();
+                const deleted = this.getDeletedBookings();
+
+                deleted.splice(index, 1);
+                active.push(booking);
+
+                localStorage.setItem(CONFIG.storageKey, JSON.stringify(active));
+                localStorage.setItem(CONFIG.deletedStorageKey, JSON.stringify(deleted));
+                this.renderStaffBookings();
+            }
+        }
+    },
+
+    toggleDeletedView() {
+        this.state.showDeleted = !this.state.showDeleted;
+        const btn = document.getElementById('btn-toggle-deleted');
+        if (btn) {
+            btn.innerText = this.state.showDeleted ? 'Ver Activas' : 'Ver Eliminadas';
+            btn.classList.toggle('border-gold', this.state.showDeleted);
+        }
+        this.renderStaffBookings();
+    },
+
     populateBarberFilter() {
         const filter = document.getElementById('filter-barber');
         if (!filter) return;
@@ -429,26 +478,32 @@ const app = {
 
     renderStaffBookings() {
         const filterBarberId = document.getElementById('filter-barber').value;
-        const bookings = this.getBookings();
         const body = document.getElementById('bookings-body');
         if (!body) return;
+
+        const bookings = this.state.showDeleted ? this.getDeletedBookings() : this.getBookings();
 
         const filtered = filterBarberId === 'all'
             ? bookings
             : bookings.filter(b => b.barberId === filterBarberId);
 
         if (filtered.length === 0) {
-            body.innerHTML = '<tr><td colspan="5" class="py-8 text-center opacity-50 italic">No hay citas programadas.</td></tr>';
+            body.innerHTML = '<tr><td colspan="6" class="py-8 text-center opacity-50 italic">No hay citas programadas.</td></tr>';
             return;
         }
 
-        body.innerHTML = filtered.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)).map(b => `
+        body.innerHTML = filtered.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)).map((b, idx) => `
             <tr class="border-b border-gold/10 hover:bg-gold/5 transition-colors">
                 <td class="py-4 px-4">${b.date}</td>
                 <td class="py-4 px-4">${b.time}</td>
                 <td class="py-4 px-4">${b.barberName}</td>
                 <td class="py-4 px-4">${b.services.join(', ')}</td>
-                <td class="py-4 px-4 text-xs text-gold">Confirmada</td>
+                <td class="py-4 px-4">${b.customerName}</td>
+                <td class="py-4 px-4">
+                    <button onclick="app.handleBookingAction(${idx})" class="text-xs uppercase p-1 border ${this.state.showDeleted ? 'border-green-600 text-green-500 hover:bg-green-600 hover:text-white' : 'border-red-600 text-red-500 hover:bg-red-600 hover:text-white'} transition-all">
+                        ${this.state.showDeleted ? 'Restaurar' : 'Eliminar'}
+                    </button>
+                </td>
             </tr>
         `).join('');
     },
