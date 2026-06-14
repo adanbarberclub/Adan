@@ -308,7 +308,24 @@ const app = {
 
     getDeletedBookings() {
         const data = localStorage.getItem(CONFIG.deletedStorageKey);
-        return data ? JSON.parse(data) : [];
+        if (!data) return [];
+
+        const deleted = JSON.parse(data);
+        const now = Date.now();
+        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+        // Filter out bookings deleted more than 7 days ago
+        const filtered = deleted.filter(b => {
+            if (!b.deletedAt) return true; // Keep if no date (legacy)
+            return (now - b.deletedAt) < sevenDaysMs;
+        });
+
+        // Only update storage if something was actually removed
+        if (filtered.length !== deleted.length) {
+            localStorage.setItem(CONFIG.deletedStorageKey, JSON.stringify(filtered));
+        }
+
+        return filtered;
     },
 
     isSlotTaken(date, time, barberId) {
