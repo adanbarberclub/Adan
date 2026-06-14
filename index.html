@@ -161,7 +161,6 @@
                     </div>
                     <div class="mb-6">
                         <h3 class="text-2xl font-serif font-bold">Cristhian Chávez</h3>
-                        <p class="text-gold text-sm mb-4">Master Barber - Especialista en Fades</p>
                     </div>
                     <div class="flex justify-center gap-4 mb-6">
                         <a href="https://www.instagram.com/xsattzz_/" target="_blank" class="text-platinum hover:text-gold transition-colors"><i class="fa-brands fa-instagram text-xl"></i></a>
@@ -179,7 +178,6 @@
                     </div>
                     <div class="mb-6">
                         <h3 class="text-2xl font-serif font-bold">Diego Adan</h3>
-                        <p class="text-gold text-sm mb-4">Master Barber - Estilo Clásico & Tijera</p>
                     </div>
                     <div class="flex justify-center gap-4 mb-6">
                         <a href="https://www.instagram.com/diego_adann/" target="_blank" class="text-platinum hover:text-gold transition-colors"><i class="fa-brands fa-instagram text-xl"></i></a>
@@ -197,7 +195,6 @@
                     </div>
                     <div class="mb-6">
                         <h3 class="text-2xl font-serif font-bold">Ismael Vázquez</h3>
-                        <p class="text-gold text-sm mb-4">Master Barber - Especialista en Barba</p>
                     </div>
                     <div class="flex justify-center gap-4 mb-6">
                         <a href="https://www.instagram.com/stylisma_barber/" target="_blank" class="text-platinum hover:text-gold transition-colors"><i class="fa-brands fa-instagram text-xl"></i></a>
@@ -284,7 +281,11 @@
                 <div id="step-2" class="step-content">
                     <h3 class="text-xl font-bold mb-6 text-center">2. Selecciona la Fecha</h3>
                     <div class="flex flex-col items-center gap-4">
-                        <div id="calendar-month" class="text-gold font-serif text-lg mb-2"></div>
+                        <div class="flex justify-between items-center w-full max-w-xs mb-2">
+                            <button onclick="app.changeMonth(-1)" class="text-gold hover:text-white transition-colors"><i class="fa-solid fa-chevron-left"></i></button>
+                            <div id="calendar-month" class="text-gold font-serif text-lg"></div>
+                            <button onclick="app.changeMonth(1)" class="text-gold hover:text-white transition-colors"><i class="fa-solid fa-chevron-right"></i></button>
+                        </div>
                         <div id="calendar-grid" class="grid grid-cols-7 gap-1 md:gap-2 w-full max-w-xs text-center">
                             <!-- Days populated by app.js -->
                         </div>

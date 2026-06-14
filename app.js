@@ -40,6 +40,8 @@ const app = {
         selectedBarber: '',
         customerName: '',
         customerPhone: '',
+        viewMonth: new Date().getMonth(),
+        viewYear: new Date().getFullYear(),
     },
 
     init() {
@@ -51,14 +53,11 @@ const app = {
     },
 
     syncMainPageBarbers() {
-        // This allows the main page cards to be updated dynamically if CONFIG changes
         const barberCards = document.querySelectorAll('.barber-card');
         CONFIG.barbers.forEach((barber, index) => {
             if (barberCards[index]) {
                 const nameEl = barberCards[index].querySelector('h3');
-                const specEl = barberCards[index].querySelector('p');
                 if (nameEl) nameEl.innerText = barber.name;
-                if (specEl) specEl.innerText = barber.spec;
 
                 const btn = barberCards[index].querySelector('button');
                 if (btn) {
@@ -172,9 +171,8 @@ const app = {
         const monthEl = document.getElementById('calendar-month');
         if (!grid || !monthEl) return;
 
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = now.getMonth();
+        const year = this.state.viewYear;
+        const month = this.state.viewMonth;
 
         const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
                             "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -183,18 +181,15 @@ const app = {
 
         const firstDay = new Date(year, month, 1).getDay();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-        const startOffset = firstDay; // 0 for Sunday, matches daysHeader
+        const startOffset = firstDay;
 
         const daysHeader = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
         let html = daysHeader.map(d => `<div class="text-platinum/50 font-bold text-[10px] uppercase">${d}</div>`).join('');
 
-        // Empty slots for previous month
         for (let i = 0; i < startOffset; i++) {
             html += `<div></div>`;
         }
 
-        // Days of the month
         for (let day = 1; day <= daysInMonth; day++) {
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             const isPast = new Date(dateStr) < new Date().setHours(0,0,0,0);
@@ -209,6 +204,18 @@ const app = {
         }
 
         grid.innerHTML = html;
+    },
+
+    changeMonth(delta) {
+        this.state.viewMonth += delta;
+        if (this.state.viewMonth > 11) {
+            this.state.viewMonth = 0;
+            this.state.viewYear++;
+        } else if (this.state.viewMonth < 0) {
+            this.state.viewMonth = 11;
+            this.state.viewYear--;
+        }
+        this.renderCalendar();
     },
 
     selectDate(date) {
@@ -259,7 +266,6 @@ const app = {
                      ${isTaken ? 'opacity-60' : ''}">
                     <div class="group-hover:text-gold transition-colors">
                         <div class="font-bold">${barber.name}</div>
-                        <div class="text-platinum text-xs">${barber.spec}</div>
                     </div>
                     ${isTaken ? '<span class="text-red-500 text-xs font-bold">OCUPADO</span>' : ''}
                 </div>
@@ -325,12 +331,16 @@ const app = {
         }
 
         const barber = CONFIG.barbers.find(b => b.id === this.state.selectedBarber);
-        const services = this.state.selectedServices.map(id => CONFIG.services.find(s => s.id_).name); // Fixed below
 
-        // Re-mapping services properly
+        // Map and calculate totals
+        let totalCost = 0;
         const serviceNames = this.state.selectedServices.map(id => {
             const s = CONFIG.services.find(serv => serv.id === id);
-            return s ? s.name : 'Desconocido';
+            if (s) {
+                totalCost += parseInt(s.price.replace(/\./g, ''));
+                return s.name;
+            }
+            return 'Desconocido';
         });
 
         const booking = {
@@ -340,7 +350,8 @@ const app = {
             time: this.state.selectedTime,
             barberId: this.state.selectedBarber,
             barberName: barber ? barber.name : 'Desconocido',
-            services: serviceNames
+            services: serviceNames,
+            totalCost: totalCost.toLocaleString('pt-BR') + ' Gs'
         };
 
         const bookings = this.getBookings();
@@ -352,7 +363,22 @@ const app = {
 
     sendWhatsApp(booking) {
         const servicesText = booking.services.join(', ');
-        const message = `💈 *Cita Solicitada - Adan BarberClub* 💈\n\n👤 **Cliente:** ${booking.customerName}\n✂️ **Servicios:** ${servicesText}\n👨‍🦱 **Barbero:** ${booking.barberName}\n📅 **Fecha:** ${booking.date}\n⏰ **Hora:** ${booking.time}\n\n*Por favor, confirma la disponibilidad de este espacio.*`;
+
+        // Format date nicely (e.g., 15 de Junio)
+        const dateObj = new Date(booking.date + 'T00:00:00');
+        const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                            "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        const formattedDate = `${dateObj.getDate()} de ${monthNames[dateObj.getMonth()]}`;
+
+        const message = `💈 *Cita Solicitada - Adan BarberClub* 💈\n\n` +
+                        `👤 **Cliente:** ${booking.customerName}\n` +
+                        `✂️ **Servicios:** ${servicesText}\n` +
+                        `💰 **Total:** ${booking.totalCost}\n` +
+                        `👨‍🦱 **Barbero:** ${booking.barberName}\n` +
+                        `📅 **Fecha:** ${formattedDate}\n` +
+                        `⏰ **Hora:** ${booking.time}\n\n` +
+                        `*Por favor, confirma la disponibilidad de este espacio.*`;
+
         const encodedMsg = encodeURIComponent(message);
         const url = `https://wa.me/${CONFIG.whatsappNumber}?text=${encodedMsg}`;
 
