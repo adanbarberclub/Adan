@@ -164,15 +164,56 @@ const app = {
     // --- Step 2: Date ---
 
     setupDatePicker() {
-        const dateInput = document.getElementById('booking-date');
-        if (!dateInput) return;
+        this.renderCalendar();
+    },
 
-        const today = new Date().toISOString().split('T')[0];
-        dateInput.setAttribute('min', today);
+    renderCalendar() {
+        const grid = document.getElementById('calendar-grid');
+        const monthEl = document.getElementById('calendar-month');
+        if (!grid || !monthEl) return;
 
-        dateInput.addEventListener('change', (e) => {
-            this.state.selectedDate = e.target.value;
-        });
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth();
+
+        const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                            "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+        monthEl.innerText = `${monthNames[month]} ${year}`;
+
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        const startOffset = firstDay; // 0 for Sunday, matches daysHeader
+
+        const daysHeader = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
+        let html = daysHeader.map(d => `<div class="text-platinum/50 font-bold text-[10px] uppercase">${d}</div>`).join('');
+
+        // Empty slots for previous month
+        for (let i = 0; i < startOffset; i++) {
+            html += `<div></div>`;
+        }
+
+        // Days of the month
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const isPast = new Date(dateStr) < new Date().setHours(0,0,0,0);
+            const isSelected = this.state.selectedDate === dateStr;
+
+            html += `
+                <div onclick="${isPast ? '' : `app.selectDate('${dateStr}')`}"
+                     class="p-2 cursor-pointer transition-all border ${isSelected ? 'bg-gold text-obsidian border-gold font-bold' : 'border-gold/10 text-white hover:border-gold'}
+                     ${isPast ? 'opacity-20 cursor-not-allowed' : ''}">
+                    ${day}
+                </div>`;
+        }
+
+        grid.innerHTML = html;
+    },
+
+    selectDate(date) {
+        this.state.selectedDate = date;
+        this.renderCalendar();
     },
 
     // --- Step 3: Time Slots ---

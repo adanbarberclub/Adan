@@ -260,7 +260,7 @@
                 <i class="fa-solid fa-xmark"></i>
             </button>
 
-            <div class="p-8 md:p-12">
+            <div class="p-6 md:p-12">
                 <div class="text-center mb-12">
                     <h2 class="font-serif text-3xl gold-text mb-2">Agendar Cita</h2>
                     <div class="flex justify-center gap-2 mt-6">
@@ -283,8 +283,11 @@
                 <!-- Step 2: Date -->
                 <div id="step-2" class="step-content">
                     <h3 class="text-xl font-bold mb-6 text-center">2. Selecciona la Fecha</h3>
-                    <div class="flex justify-center">
-                        <input type="date" id="booking-date" class="w-full max-w-xs p-3 bg-obsidian border border-gold/30 text-white focus:outline-none focus:border-gold text-center">
+                    <div class="flex flex-col items-center gap-4">
+                        <div id="calendar-month" class="text-gold font-serif text-lg mb-2"></div>
+                        <div id="calendar-grid" class="grid grid-cols-7 gap-1 md:gap-2 w-full max-w-xs text-center">
+                            <!-- Days populated by app.js -->
+                        </div>
                     </div>
                 </div>
 
