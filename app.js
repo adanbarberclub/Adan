@@ -32,12 +32,12 @@ const CONFIG = {
     deletedStorageKey: 'adam_barber_deleted_bookings',
     socialFeed: {
         instagram: [
-            'https://www.instagram.com/p/C_example1/', // Sustituir por URL real del post
-            'https://www.instagram.com/p/C_example2/'  // Sustituir por URL real del post
+            'img/Instagram imagen 1.jpg',
+            'img/Instagram imagen 2.jpg'
         ],
         tiktok: [
-            'https://www.tiktok.com/@adanbarberclub/video/123456789', // Sustituir por URL real del video
-            'https://www.tiktok.com/@adanbarberclub/video/987654321'  // Sustituir por URL real del video
+            'img/Tiktok image 1.jpg',
+            'img/Tiktok image 2.jpg'
         ]
     }
 };
@@ -85,31 +85,29 @@ const app = {
         const tkContainer = document.getElementById('tiktok-feed');
         if (!igContainer || !tkContainer) return;
 
-        // Render Instagram Posts
-        igContainer.innerHTML = CONFIG.socialFeed.instagram.map(url => `
-            <div class="bg-charcoal border border-gold/20 rounded-sm overflow-hidden h-[450px] flex items-center justify-center">
-                <blockquote class="instagram-media" data-instgrm-permalink="${url}" data-instgrm-captioned="false">
-                    <a href="${url}" target="_blank">Ver post en Instagram</a>
-                </blockquote>
+        // Render Instagram Images
+        igContainer.innerHTML = CONFIG.socialFeed.instagram.map(imgSrc => `
+            <div class="group relative overflow-hidden rounded-sm border border-gold/20 bg-charcoal aspect-[9/16] cursor-pointer">
+                <img src="${imgSrc}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt="Instagram Post">
+                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 bg-obsidian/40">
+                    <a href="https://www.instagram.com/adan_barberclub/" target="_blank" class="bg-gold text-obsidian p-3 rounded-full">
+                        <i class="fa-brands fa-instagram"></i>
+                    </a>
+                </div>
             </div>
         `).join('');
 
-        // Render TikTok Posts
-        tkContainer.innerHTML = CONFIG.socialFeed.tiktok.map(url => {
-            const videoId = url.split('/video/')[1]?.split('?')[0] || '';
-            return `
-                <div class="bg-charcoal border border-gold/20 rounded-sm overflow-hidden h-[450px] flex items-center justify-center">
-                    <blockquote class="tiktok-embed" cite="${url}" data-video-id="${videoId}">
-                        <section></section>
-                    </blockquote>
+        // Render TikTok Images
+        tkContainer.innerHTML = CONFIG.socialFeed.tiktok.map(imgSrc => `
+            <div class="group relative overflow-hidden rounded-sm border border-gold/20 bg-charcoal aspect-[9/16] cursor-pointer">
+                <img src="${imgSrc}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt="TikTok Post">
+                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 bg-obsidian/40">
+                    <a href="https://www.tiktok.com/@adanbarberclub?_r=1&_t=ZS-97DKcxu3ouq" target="_blank" class="bg-gold text-obsidian p-3 rounded-full">
+                        <i class="fa-brands fa-tiktok"></i>
+                    </a>
                 </div>
-            `;
-        }).join('');
-
-        // Re-process embeds if scripts are already loaded
-        if (window.instgrm) {
-            window.instgrm.Embeds.process();
-        }
+            </div>
+        `).join('');
     },
 
     // --- UI Helpers ---
