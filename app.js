@@ -29,7 +29,17 @@ const CONFIG = {
         '17:00', '18:00', '19:00'
     ],
     storageKey: 'adam_barber_bookings',
-    deletedStorageKey: 'adam_barber_deleted_bookings'
+    deletedStorageKey: 'adam_barber_deleted_bookings',
+    socialFeed: {
+        instagram: [
+            'https://www.instagram.com/p/C_example1/', // Sustituir por URL real del post
+            'https://www.instagram.com/p/C_example2/'  // Sustituir por URL real del post
+        ],
+        tiktok: [
+            'https://www.tiktok.com/@adanbarberclub/video/123456789', // Sustituir por URL real del video
+            'https://www.tiktok.com/@adanbarberclub/video/987654321'  // Sustituir por URL real del video
+        ]
+    }
 };
 
 const app = {
@@ -52,6 +62,7 @@ const app = {
         this.setupDatePicker();
         // Update the main page barber section to match CONFIG
         this.syncMainPageBarbers();
+        this.renderSocialFeed();
     },
 
     syncMainPageBarbers() {
@@ -67,6 +78,38 @@ const app = {
                 }
             }
         });
+    },
+
+    renderSocialFeed() {
+        const igContainer = document.getElementById('instagram-feed');
+        const tkContainer = document.getElementById('tiktok-feed');
+        if (!igContainer || !tkContainer) return;
+
+        // Render Instagram Posts
+        igContainer.innerHTML = CONFIG.socialFeed.instagram.map(url => `
+            <div class="bg-charcoal border border-gold/20 rounded-sm overflow-hidden h-[450px] flex items-center justify-center">
+                <blockquote class="instagram-media" data-instgrm-permalink="${url}" data-instgrm-captioned="false">
+                    <a href="${url}" target="_blank">Ver post en Instagram</a>
+                </blockquote>
+            </div>
+        `).join('');
+
+        // Render TikTok Posts
+        tkContainer.innerHTML = CONFIG.socialFeed.tiktok.map(url => {
+            const videoId = url.split('/video/')[1]?.split('?')[0] || '';
+            return `
+                <div class="bg-charcoal border border-gold/20 rounded-sm overflow-hidden h-[450px] flex items-center justify-center">
+                    <blockquote class="tiktok-embed" cite="${url}" data-video-id="${videoId}">
+                        <section></section>
+                    </blockquote>
+                </div>
+            `;
+        }).join('');
+
+        // Re-process embeds if scripts are already loaded
+        if (window.instgrm) {
+            window.instgrm.Embeds.process();
+        }
     },
 
     // --- UI Helpers ---

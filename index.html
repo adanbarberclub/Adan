@@ -361,36 +361,31 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <!-- Social Post 1 -->
-                <div class="group relative overflow-hidden h-80 bg-charcoal border border-gold/10">
-                    <img src="https://images.unsplash.com/photo-1503951906201-a5f3f8175a61?q=80&w=800&auto=format&fit=crop" class="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all duration-500" alt="Social Post 1">
-                    <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 bg-obsidian/40">
-                        <a href="https://www.instagram.com/adan_barberclub/" target="_blank" class="bg-gold text-obsidian p-3 rounded-full"><i class="fa-brands fa-instagram"></i></a>
+            <!-- Social Feed Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                <!-- Instagram Column -->
+                <div class="flex flex-col gap-6">
+                    <div class="flex items-center gap-3 mb-2">
+                        <i class="fa-brands fa-instagram text-2xl gold-text"></i>
+                        <h3 class="font-serif text-2xl">Instagram</h3>
+                    </div>
+                    <div id="instagram-feed" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- Populated by app.js -->
                     </div>
                 </div>
-                <!-- Social Post 2 -->
-                <div class="group relative overflow-hidden h-80 bg-charcoal border border-gold/10">
-                    <img src="https://images.unsplash.com/photo-1622286341056-29305e2B242a?q=80&w=800&auto=format&fit=crop" class="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all duration-500" alt="Social Post 2">
-                    <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 bg-obsidian/40">
-                        <a href="https://www.instagram.com/adan_barberclub/" target="_blank" class="bg-gold text-obsidian p-3 rounded-full"><i class="fa-brands fa-instagram"></i></a>
+
+                <!-- TikTok Column -->
+                <div class="flex flex-col gap-6">
+                    <div class="flex items-center gap-3 mb-2">
+                        <i class="fa-brands fa-tiktok text-2xl gold-text"></i>
+                        <h3 class="font-serif text-2xl">TikTok</h3>
                     </div>
-                </div>
-                <!-- Social Post 3 -->
-                <div class="group relative overflow-hidden h-80 bg-charcoal border border-gold/10">
-                    <img src="https://images.unsplash.com/photo-153271815647 uma-fase-final?q=80&w=800&auto=format&fit=crop" class="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all duration-500" alt="Social Post 3">
-                    <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 bg-obsidian/40">
-                        <a href="https://www.tiktok.com/@adanbarberclub" target="_blank" class="bg-gold text-obsidian p-3 rounded-full"><i class="fa-brands fa-tiktok"></i></a>
-                    </div>
-                </div>
-                <!-- Social Post 4 -->
-                <div class="group relative overflow-hidden h-80 bg-charcoal border border-gold/10">
-                    <img src="https://images.unsplash.com/photo-1599353083762-993675003897?q=80&w=800&auto=format&fit=crop" class="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all duration-500" alt="Social Post 4">
-                    <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 bg-obsidian/40">
-                        <a href="https://www.instagram.com/adan_barberclub/" target="_blank" class="bg-gold text-obsidian p-3 rounded-full"><i class="fa-brands fa-instagram"></i></a>
+                    <div id="tiktok-feed" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- Populated by app.js -->
                     </div>
                 </div>
             </div>
+            <!-- End Social Feed Grid -->
         </div>
     </section>
 
@@ -563,6 +558,8 @@
         </div>
     </div>
 
+    <script async src="//www.instagram.com/embed.js"></script>
+    <script async src="https://www.tiktok.com/embed.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
