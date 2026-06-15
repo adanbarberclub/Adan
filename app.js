@@ -233,9 +233,13 @@ const app = {
             html += `<div></div>`;
         }
 
+        const today = new Date();
+        today.setHours(0,0,0,0);
+
         for (let day = 1; day <= daysInMonth; day++) {
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            const isPast = new Date(dateStr) < new Date().setHours(0,0,0,0);
+            const dateObj = new Date(dateStr + 'T00:00:00');
+            const isPast = dateObj < today;
             const isSelected = this.state.selectedDate === dateStr;
 
             html += `
@@ -272,27 +276,43 @@ const app = {
         const container = document.getElementById('time-slots');
         if (!container) return;
 
+        const now = new Date();
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+
         container.innerHTML = CONFIG.timeSlots.map(slot => {
+            const [slotHour, slotMinute] = slot.split(':').map(Number);
+
+            // Check if the slot is in the past for today's date
+            let isPastSlot = false;
+            const todayStr = new Date().toISOString().split('T')[0];
+            if (this.state.selectedDate === todayStr) {
+                if (slotHour < currentHour || (slotHour === currentHour && slotMinute <= currentMinute)) {
+                    isPastSlot = true;
+                }
+            }
+
             // Check if the slot is totally occupied (all barbers taken)
             const isFull = CONFIG.barbers.every(barber => this.isSlotTaken(this.state.selectedDate, slot, barber.id));
 
-            // If a barber is already selected (e.g., from home page), check if that specific barber is taken
+            // If a barber is already selected, check if that specific barber is taken
             let isSpecificBarberTaken = false;
             if (this.state.selectedBarber) {
                 isSpecificBarberTaken = this.isSlotTaken(this.state.selectedDate, slot, this.state.selectedBarber);
             }
 
             const isSelected = this.state.selectedTime === slot;
-            const isDisabled = isFull || isSpecificBarberTaken;
+            const isDisabled = isFull || isSpecificBarberTaken || isPastSlot;
 
             return `
                 <div onclick="${isDisabled ? '' : `app.selectTime('${slot}')`}"
                      class="p-2 text-center border cursor-pointer transition-all flex flex-col justify-center
                      ${isDisabled ? 'border-platinum/20 text-platinum/30 cursor-not-allowed opacity-50' : 'border-gold/30 hover:border-gold'}
                      ${isSelected ? 'bg-gold text-obsidian font-bold' : 'text-white'}
-                     ${isSpecificBarberTaken && !isFull ? 'border-red-500/50 bg-red-900/10' : ''}">
+                     ${isSpecificBarberTaken && !isFull && !isPastSlot ? 'border-red-500/50 bg-red-900/10' : ''}">
                     <span class="text-sm">${slot}</span>
-                    ${isSpecificBarberTaken && !isFull ? '<span class="text-[8px] text-red-500 font-bold uppercase">Ocupado</span>' : ''}
+                    ${isSpecificBarberTaken && !isFull && !isPastSlot ? '<span class="text-[8px] text-red-500 font-bold uppercase">Ocupado</span>' : ''}
+                    ${isPastSlot ? '<span class="text-[8px] text-platinum/50 font-bold uppercase">Pasado</span>' : ''}
                 </div>
             `;
         }).join('');
