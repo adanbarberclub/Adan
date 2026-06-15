@@ -32,7 +32,7 @@ const CONFIG = {
     deletedStorageKey: 'adam_barber_deleted_bookings',
     socialFeed: {
         instagram: [
-            'img/Instagram imagen 1.jpg',
+            'img/Instagram image 1 change.jpg',
             'img/Instagram imagen 2.jpg'
         ],
         tiktok: [
@@ -275,14 +275,24 @@ const app = {
         container.innerHTML = CONFIG.timeSlots.map(slot => {
             // Check if the slot is totally occupied (all barbers taken)
             const isFull = CONFIG.barbers.every(barber => this.isSlotTaken(this.state.selectedDate, slot, barber.id));
+
+            // If a barber is already selected (e.g., from home page), check if that specific barber is taken
+            let isSpecificBarberTaken = false;
+            if (this.state.selectedBarber) {
+                isSpecificBarberTaken = this.isSlotTaken(this.state.selectedDate, slot, this.state.selectedBarber);
+            }
+
             const isSelected = this.state.selectedTime === slot;
+            const isDisabled = isFull || isSpecificBarberTaken;
 
             return `
-                <div onclick="${isFull ? '' : `app.selectTime('${slot}')`}"
-                     class="p-2 text-center border cursor-pointer transition-all
-                     ${isFull ? 'border-platinum/20 text-platinum/30 cursor-not-allowed' : 'border-gold/30 hover:border-gold'}
-                     ${isSelected ? 'bg-gold text-obsidian font-bold' : 'text-white'}">
-                    ${slot}
+                <div onclick="${isDisabled ? '' : `app.selectTime('${slot}')`}"
+                     class="p-2 text-center border cursor-pointer transition-all flex flex-col justify-center
+                     ${isDisabled ? 'border-platinum/20 text-platinum/30 cursor-not-allowed opacity-50' : 'border-gold/30 hover:border-gold'}
+                     ${isSelected ? 'bg-gold text-obsidian font-bold' : 'text-white'}
+                     ${isSpecificBarberTaken && !isFull ? 'border-red-500/50 bg-red-900/10' : ''}">
+                    <span class="text-sm">${slot}</span>
+                    ${isSpecificBarberTaken && !isFull ? '<span class="text-[8px] text-red-500 font-bold uppercase">Ocupado</span>' : ''}
                 </div>
             `;
         }).join('');
