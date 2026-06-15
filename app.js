@@ -19,9 +19,9 @@ const CONFIG = {
         { id: 'limpieza', name: 'Limpieza capilar', price: '20.000' },
     ],
     barbers: [
-        { id: 'cristhian', name: 'Cristhian Chávez', spec: 'Master Barber - Especialista en Fades' },
-        { id: 'diego', name: 'Diego Adan', spec: 'Master Barber - Estilo Clásico & Tijera' },
-        { id: 'ismael', name: 'Ismael Vázquez', spec: 'Master Barber - Especialista en Barba' },
+        { id: 'cristhian', name: 'Cristhian Chávez', spec: 'Master Barber - Especialista in Fades', img: 'img/barber-cristhian.jpg' },
+        { id: 'diego', name: 'Diego Adan', spec: 'Master Barber - Estilo Clásico & Tijera', img: 'img/barber-diego.jpg' },
+        { id: 'ismael', name: 'Ismael Vázquez', spec: 'Master Barber - Especialista in Barba', img: 'img/barber-ismael.jpg' },
     ],
     timeSlots: [
         '09:00', '10:00', '11:00', '12:00',
@@ -315,12 +315,13 @@ const app = {
 
             return `
                 <div onclick="${isTaken ? `app.handleBarberTaken('${barber.name}')` : `app.selectBarber('${barber.id}')`}"
-                     class="p-4 bg-obsidian border ${isSelected ? 'border-gold bg-gold/10' : 'border-gold/30'} cursor-pointer hover:border-gold transition-all flex justify-between items-center group
+                     class="p-4 bg-obsidian border ${isSelected ? 'border-gold bg-gold/10' : 'border-gold/30'} cursor-pointer hover:border-gold transition-all flex items-center gap-4 group
                      ${isTaken ? 'opacity-60' : ''}">
-                    <div class="group-hover:text-gold transition-colors">
+                    <img src="${barber.img}" class="w-12 h-12 rounded-full object-cover border border-gold/50">
+                    <div class="group-hover:text-gold transition-colors flex-grow">
                         <div class="font-bold">${barber.name}</div>
                     </div>
-                    ${isTaken ? '<span class="text-red-500 text-xs font-bold">OCUPADO</span>' : ''}
+                    ${isTaken ? '<span class="text-red-500 text-xs font-bold uppercase">Ocupado</span>' : ''}
                 </div>
             `;
         }).join('');
@@ -490,6 +491,16 @@ const app = {
         document.getElementById('staff-modal').classList.add('hidden');
     },
 
+    markAsCompleted(index) {
+        const bookings = this.getBookings();
+        const booking = bookings[index];
+        if (confirm(`¿Marcar el servicio de ${booking.customerName} como realizado?`)) {
+            bookings.splice(index, 1);
+            localStorage.setItem(CONFIG.storageKey, JSON.stringify(bookings));
+            this.renderStaffBookings();
+        }
+    },
+
     handleBookingAction(index) {
         const isDeletedView = this.state.showDeleted;
         const currentList = isDeletedView ? this.getDeletedBookings() : this.getBookings();
@@ -566,11 +577,23 @@ const app = {
                 <td class="py-4 px-4">${b.time}</td>
                 <td class="py-4 px-4">${b.barberName}</td>
                 <td class="py-4 px-4">${b.services.join(', ')}</td>
-                <td class="py-4 px-4">${b.customerName}</td>
                 <td class="py-4 px-4">
-                    <button onclick="app.handleBookingAction(${idx})" class="text-xs uppercase p-1 border ${this.state.showDeleted ? 'border-green-600 text-green-500 hover:bg-green-600 hover:text-white' : 'border-red-600 text-red-500 hover:bg-red-600 hover:text-white'} transition-all">
-                        ${this.state.showDeleted ? 'Restaurar' : 'Eliminar'}
-                    </button>
+                    <div class="flex flex-col gap-1">
+                        <span class="font-bold text-white">${b.customerName}</span>
+                        <span class="text-[10px] text-platinum">${b.customerPhone}</span>
+                    </div>
+                </td>
+                <td class="py-4 px-4">
+                    <div class="flex gap-2">
+                        ${!this.state.showDeleted ? `
+                            <button onclick="app.markAsCompleted(${idx})" class="text-xs uppercase p-1 border border-green-600 text-green-500 hover:bg-green-600 hover:text-white transition-all">
+                                Realizado
+                            </button>
+                        ` : ''}
+                        <button onclick="app.handleBookingAction(${idx})" class="text-xs uppercase p-1 border ${this.state.showDeleted ? 'border-green-600 text-green-500 hover:bg-green-600 hover:text-white' : 'border-red-600 text-red-500 hover:bg-red-600 hover:text-white'} transition-all">
+                            ${this.state.showDeleted ? 'Restaurar' : 'Eliminar'}
+                        </button>
+                    </div>
                 </td>
             </tr>
         `).join('');
