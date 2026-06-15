@@ -601,6 +601,12 @@ const app = {
 
     // --- Modal Control ---
     openBooking() {
+        this.state.selectedServices = [];
+        this.state.selectedDate = '';
+        this.state.selectedTime = '';
+        this.state.selectedBarber = '';
+        this.state.customerName = '';
+        this.state.customerPhone = '';
         document.getElementById('booking-modal').classList.remove('hidden');
         document.body.style.overflow = 'hidden';
         this.state.step = 1;
