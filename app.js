@@ -1,7 +1,6 @@
 /**
  * Adam Barber Club - Booking Logic
- * Optimized for High Performance and Cloud Synchronization
- * Implements a "Cache-First" strategy to eliminate loading lags.
+ * High Performance Mode with Real-time Cloud Synchronization
  */
 
 const CONFIG = {
@@ -64,7 +63,9 @@ const app = {
         this.renderSocialFeed();
         this.initSupabase();
         this.loadBookings();
-        setInterval(() => this.loadBookings(), 30000);
+
+        // Sincronización agresiva cada 15 segundos para asegurar actualización
+        setInterval(() => this.loadBookings(), 15000);
     },
 
     initSupabase() {
@@ -72,15 +73,33 @@ const app = {
             try {
                 this.supabase = supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey);
                 this.state.isCloudConnected = true;
+
+                // Habilitar Realtime (Suscripción a cambios en la tabla)
+                this.setupRealtime();
             } catch (e) {
                 this.state.isCloudConnected = false;
             }
         }
     },
 
+    setupRealtime() {
+        try {
+            this.supabase
+                .channel('bookings-changes')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, (payload) => {
+                    console.log('☁️ Cambio detectado en la nube, actualizando...');
+                    this.loadBookings();
+                })
+                .subscribe();
+        } catch (e) {
+            console.error('Realtime error:', e);
+        }
+    },
+
     async loadBookings() {
         const cached = localStorage.getItem(CONFIG.storageKey);
         if (cached) this.state.bookings = JSON.parse(cached);
+
         if (this.state.isCloudConnected) {
             try {
                 const { data, error } = await this.supabase
@@ -90,15 +109,19 @@ const app = {
                 if (!error && data) {
                     this.state.bookings = data;
                     localStorage.setItem(CONFIG.storageKey, JSON.stringify(data));
-                    if (this.state.step === 3) this.renderTimeSlots();
-                    if (this.state.step === 4) this.renderBarbers();
-                    if (!document.getElementById('staff-agenda-view').classList.contains('hidden')) {
-                        this.renderStaffBookings();
-                    }
+                    this.refreshUIComponents();
                 }
             } catch (e) {
                 console.error('Sync error:', e);
             }
+        }
+    },
+
+    refreshUIComponents() {
+        if (this.state.step === 3) this.renderTimeSlots();
+        if (this.state.step === 4) this.renderBarbers();
+        if (!document.getElementById('staff-agenda-view').classList.contains('hidden')) {
+            this.renderStaffBookings();
         }
     },
 
@@ -176,7 +199,7 @@ const app = {
         if (!container) return;
         container.innerHTML = CONFIG.services.map(service => `
             <div onclick="app.toggleService('${service.id}')"
-                 class="p-4 bg-obsidian border ${this.state.selectedServices.includes(service.id) ? 'border-gold bg-gold/10' : 'border-gold/30'} cursor-pointer hover:border-gold transition-all flex justify-between items-center group">
+                 class="p-4 bg-obsidian border ${this.state.selected laL.includes(service.id) ? 'border-gold bg-gold/10' : 'border-gold/30'} cursor-pointer hover:border-gold transition-all flex justify-between items-center group">
                 <span class="group-hover:text-gold transition-colors">${service.name}</span>
                 <span class="text-gold font-bold">${service.price} Gs</span>
             </div>
