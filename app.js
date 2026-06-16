@@ -240,7 +240,7 @@ const app = {
             if (this.state.selectedDate === todayStr && (slotHour < currentHour || (slotHour === currentHour && slotMinute <= currentMinute))) isPastSlot = true;
             const isFull = CONFIG.barbers.every(barber => this.isSlotTaken(this.state.selectedDate, slot, barber.id));
             let isSpecificBarberTaken = false;
-            if (this.state.selectedBarber) isSpecificBarberTaken = this.isSlotTaken(this.state.selectedDate, slot, this.state.selectedBar laId);
+            if (this.state.selectedBarber) isSpecificBarberTaken = this.isSlotTaken(this.state.selectedDate, slot, this.state.selectedBarber);
             const isSelected = this.state.selectedTime === slot;
             const isDisabled = isFull || isSpecificBarberTaken || isPastSlot;
             return `<div onclick="${isDisabled ? '' : `app.selectTime('${slot}')`}"
