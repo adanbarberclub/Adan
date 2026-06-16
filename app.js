@@ -1,17 +1,13 @@
 /**
  * Adam Barber Club - Booking Logic
- * High Performance Mode with Real-time Cloud Synchronization
+ * Professional Version: Stable, Responsive and Cloud-Synced
  */
 
 const CONFIG = {
     whatsappNumber: '595994587337',
     staffPassword: 'admin',
-
-    // --- SUPABASE CONFIGURATION ---
     supabaseUrl: 'https://khvpksklcwyfmsxsgyde.supabase.co',
     supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtodnBrc2tsY3d5Zm1zeHNneWRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1NTgwMzEsImV4cCI6MjA5NzEzNDAzMX0.Rq0_mWYC3jeWUTHb81eXaAmHoWFHDqCTjaIA2J9e5rE',
-    // ----------------------------
-
     services: [
         { id: 'clásico', name: 'Corte clásico', price: '40.000' },
         { id: 'moderno', name: 'Corte moderno', price: '50.000' },
@@ -28,11 +24,7 @@ const CONFIG = {
         { id: 'diego', name: 'Diego Adan', spec: 'Master Barber - Estilo Clásico & Tijera', img: 'img/barber-diego.jpg' },
         { id: 'ismael', name: 'Ismael Vázquez', spec: 'Master Barber - Especialista in Barba', img: 'img/barber-ismael.jpg' },
     ],
-    timeSlots: [
-        '09:00', '10:00', '11:00', '12:00',
-        '13:00', '14:00', '15:00', '16:00',
-        '17:00', '18:00', '19:00'
-    ],
+    timeSlots: ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00'],
     storageKey: 'adam_barber_bookings_cache',
     socialFeed: {
         instagram: ['img/Instagram image 1 change.jpg', 'img/Instagram imagen 2.jpg'],
@@ -57,15 +49,19 @@ const app = {
     },
 
     init() {
-        this.renderServices();
-        this.setupDatePicker();
-        this.syncMainPageBarbers();
-        this.renderSocialFeed();
-        this.initSupabase();
-        this.loadBookings();
+        try {
+            this.renderServices();
+            this.setupDatePicker();
+            this.syncMainPageBarbers();
+            this.renderSocialFeed();
+            this.initSupabase();
+            this.loadBookings();
 
-        // Sincronización agresiva cada 15 segundos para asegurar actualización
-        setInterval(() => this.loadBookings(), 15000);
+            // Sincronización automática cada 30 segundos
+            setInterval(() => this.loadBookings(), 30000);
+        } catch (e) {
+            console.error('Initialization error:', e);
+        }
     },
 
     initSupabase() {
@@ -73,8 +69,6 @@ const app = {
             try {
                 this.supabase = supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey);
                 this.state.isCloudConnected = true;
-
-                // Habilitar Realtime (Suscripción a cambios en la tabla)
                 this.setupRealtime();
             } catch (e) {
                 this.state.isCloudConnected = false;
@@ -85,14 +79,13 @@ const app = {
     setupRealtime() {
         try {
             this.supabase
-                .channel('bookings-changes')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, (payload) => {
-                    console.log('☁️ Cambio detectado en la nube, actualizando...');
+                .channel('bookings-channel')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => {
                     this.loadBookings();
                 })
                 .subscribe();
         } catch (e) {
-            console.error('Realtime error:', e);
+            console.warn('Realtime not available');
         }
     },
 
@@ -120,7 +113,8 @@ const app = {
     refreshUIComponents() {
         if (this.state.step === 3) this.renderTimeSlots();
         if (this.state.step === 4) this.renderBarbers();
-        if (!document.getElementById('staff-agenda-view').classList.contains('hidden')) {
+        const staffView = document.getElementById('staff-agenda-view');
+        if (staffView && !staffView.classList.contains('hidden')) {
             this.renderStaffBookings();
         }
     },
@@ -199,7 +193,7 @@ const app = {
         if (!container) return;
         container.innerHTML = CONFIG.services.map(service => `
             <div onclick="app.toggleService('${service.id}')"
-                 class="p-4 bg-obsidian border ${this.state.selected laL.includes(service.id) ? 'border-gold bg-gold/10' : 'border-gold/30'} cursor-pointer hover:border-gold transition-all flex justify-between items-center group">
+                 class="p-4 bg-obsidian border ${this.state.selectedServices.includes(service.id) ? 'border-gold bg-gold/10' : 'border-gold/30'} cursor-pointer hover:border-gold transition-all flex justify-between items-center group">
                 <span class="group-hover:text-gold transition-colors">${service.name}</span>
                 <span class="text-gold font-bold">${service.price} Gs</span>
             </div>
