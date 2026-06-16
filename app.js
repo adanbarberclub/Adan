@@ -497,12 +497,15 @@ const app = {
         document.getElementById('staff-agenda-view').classList.add('hidden');
     },
 
-    verifyStaff() {
+    async verifyStaff() {
         const pin = document.getElementById('staff-pin').value;
         if (pin === CONFIG.staffPassword) {
             document.getElementById('staff-login-view').classList.add('hidden');
             document.getElementById('staff-agenda-view').classList.remove('hidden');
             this.populateBarberFilter();
+
+            // Forzar recarga de datos desde la nube antes de renderizar
+            await this.loadBookings();
             this.renderStaffBookings();
         } else {
             alert('PIN incorrecto');
