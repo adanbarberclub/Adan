@@ -1,13 +1,25 @@
 /**
  * Adam Barber Club - Booking Logic
- * Professional Version: Stable, Responsive and Cloud-Synced
+ * Powered by Firebase Realtime Database for Instant Synchronization
  */
 
 const CONFIG = {
     whatsappNumber: '595994587337',
     staffPassword: 'admin',
-    supabaseUrl: 'https://khvpksklcwyfmsxsgyde.supabase.co',
-    supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtodnBrc2tsY3d5Zm1zeHNneWRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1NTgwMzEsImV4cCI6MjA5NzEzNDAzMX0.Rq0_mWYC3jeWUTHb81eXaAmHoWFHDqCTjaIA2J9e5rE',
+
+    // --- FIREBASE CONFIGURATION ---
+    firebaseConfig: {
+        apiKey: "AIzaSyCws-6IUCHAwQ8cOIvAecMar_4dKdsTnUE",
+        authDomain: "adan-barberclub.firebaseapp.com",
+        databaseURL: "https://adan-barberclub-default-rtdb.firebaseio.com",
+        projectId: "adan-barberclub",
+        storageBucket: "adan-barberclub.firebasestorage.app",
+        messagingSenderId: "811006309225",
+        appId: "1:811006309225:web:6533ac3f25f8b5d67843f8",
+        measurementId: "G-943S8V9Q1B"
+    },
+    // ----------------------------
+
     services: [
         { id: 'clásico', name: 'Corte clásico', price: '40.000' },
         { id: 'moderno', name: 'Corte moderno', price: '50.000' },
@@ -45,69 +57,60 @@ const app = {
         viewYear: new Date().getFullYear(),
         showDeleted: false,
         bookings: [],
-        isCloudConnected: false
+        db: null
     },
 
     init() {
+        console.log('Adam Barber Club - Firebase Edition Initializing...');
+
+        this.renderServices();
+        this.setupDatePicker();
+        this.syncMainPageBarbers();
+        this.renderSocialFeed();
+
+        this.initFirebase();
+    },
+
+    initFirebase() {
         try {
-            this.renderServices();
-            this.setupDatePicker();
-            this.syncMainPageBarbers();
-            this.renderSocialFeed();
-            this.initSupabase();
-            this.loadBookings();
-
-            // Sincronización automática cada 30 segundos
-            setInterval(() => this.loadBookings(), 30000);
+            firebase.initializeApp(CONFIG.firebaseConfig);
+            this.state.db = firebase.database();
+            console.log('🔥 Firebase connected successfully');
+            this.listenToBookings();
         } catch (e) {
-            console.error('Initialization error:', e);
+            console.error('Firebase Init Error:', e);
+            alert('Error al conectar con la base de datos. Por favor, recarga la página.');
         }
     },
 
-    initSupabase() {
-        if (CONFIG.supabaseUrl && CONFIG.supabaseKey) {
-            try {
-                this.supabase = supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey);
-                this.state.isCloudConnected = true;
-                this.setupRealtime();
-            } catch (e) {
-                this.state.isCloudConnected = false;
-            }
-        }
-    },
+    listenToBookings() {
+        const bookingsRef = firebase.database().ref('bookings');
 
-    setupRealtime() {
-        try {
-            this.supabase
-                .channel('bookings-channel')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => {
-                    this.loadBookings();
-                })
-                .subscribe();
-        } catch (e) {
-            console.warn('Realtime not available');
-        }
-    },
-
-    async loadBookings() {
+        // Carga inicial desde Cache para evitar lag
         const cached = localStorage.getItem(CONFIG.storageKey);
-        if (cached) this.state.bookings = JSON.parse(cached);
-
-        if (this.state.isCloudConnected) {
-            try {
-                const { data, error } = await this.supabase
-                    .from('bookings')
-                    .select('*')
-                    .order('created_at', { ascending: false });
-                if (!error && data) {
-                    this.state.bookings = data;
-                    localStorage.setItem(CONFIG.storageKey, JSON.stringify(data));
-                    this.refreshUIComponents();
-                }
-            } catch (e) {
-                console.error('Sync error:', e);
-            }
+        if (cached) {
+            this.state.bookings = JSON.parse(cached);
+            this.refreshUIComponents();
         }
+
+        // Escucha cambios en tiempo real (Sincronización instantánea)
+        bookingsRef.on('value', (snapshot) => {
+            const data = snapshot.val();
+            const bookingsArray = [];
+
+            if (data) {
+                Object.keys(data).forEach(key => {
+                    bookingsArray.push({ id: key, ...data[key] });
+                });
+            }
+
+            this.state.bookings = bookingsArray;
+            localStorage.setItem(CONFIG.storageKey, JSON.stringify(bookingsArray));
+            this.refreshUIComponents();
+            console.log('☁️ Sync: Bookings updated in real-time');
+        }, (error) => {
+            console.error('Firebase Read Error:', error);
+        });
     },
 
     refreshUIComponents() {
@@ -337,14 +340,12 @@ const app = {
             total_cost: totalCost.toLocaleString('pt-BR') + ' Gs',
             is_deleted: false
         };
-        if (this.state.isCloudConnected) {
+        if (this.state.db) {
             try {
-                const { error } = await this.supabase.from('bookings').insert([booking]);
-                if (error) throw error;
-                await this.loadBookings();
+                await firebase.database().ref('bookings').push(booking);
             } catch (e) {
-                console.error('Cloud save error:', e);
-                alert('Guardado localmente (Error en nube).');
+                console.error('Firebase save error:', e);
+                alert('Error al guardar en la nube, se guardó localmente.');
             }
         }
         this.state.bookings.push(booking);
@@ -374,7 +375,6 @@ const app = {
             document.getElementById('staff-login-view').classList.add('hidden');
             document.getElementById('staff-agenda-view').classList.remove('hidden');
             this.populateBarberFilter();
-            await this.loadBookings();
             this.renderStaffBookings();
         } else alert('PIN incorrecto');
     },
@@ -389,7 +389,11 @@ const app = {
     async markAsCompleted(index) {
         const booking = this.state.bookings[index];
         if (confirm(`¿Cita realizada?`)) {
-            if (this.state.isCloudConnected) await this.supabase.from('bookings').delete().eq('id', booking.id);
+            if (this.state.db) {
+                try {
+                    await firebase.database().ref('bookings/' + booking.id).remove();
+                } catch (e) { console.error('Firebase remove error:', e); }
+            }
             this.state.bookings.splice(index, 1);
             localStorage.setItem(CONFIG.storageKey, JSON.stringify(this.state.bookings));
             this.renderStaffBookings();
@@ -402,7 +406,11 @@ const app = {
         const booking = currentList[index];
         if (!isDeletedView) {
             if (confirm(`¿Eliminar cita de ${booking.customer_name}?`)) {
-                if (this.state.isCloudConnected) await this.supabase.from('bookings').update({ is_deleted: true }).eq('id', booking.id);
+                if (this.state.db) {
+                    try {
+                        await firebase.database().ref('bookings/' + booking.id).update({ is_deleted: true });
+                    } catch (e) { console.error('Firebase update error:', e); }
+                }
                 const bIdx = this.state.bookings.findIndex(b => b.id === booking.id);
                 this.state.bookings[bIdx].is_deleted = true;
                 localStorage.setItem(CONFIG.storageKey, JSON.stringify(this.state.bookings));
@@ -410,7 +418,11 @@ const app = {
             }
         } else {
             if (confirm(`¿Restaurar cita de ${booking.customer_name}?`)) {
-                if (this.state.isCloudConnected) await this.supabase.from('bookings').update({ is_deleted: false }).eq('id', booking.id);
+                if (this.state.db) {
+                    try {
+                        await firebase.database().ref('bookings/' + booking.id).update({ is_deleted: false });
+                    } catch (e) { console.error('Firebase update error:', e); }
+                }
                 const bIdx = this.state.bookings.findIndex(b => b.id === booking.id);
                 this.state.bookings[bIdx].is_deleted = false;
                 localStorage.setItem(CONFIG.storageKey, JSON.stringify(this.state.bookings));
