@@ -1,7 +1,6 @@
 /**
  * Adam Barber Club - Booking Logic
  * Optimized for High Performance and Cloud Synchronization
- * Implements a "Cache-First" strategy to eliminate loading lags.
  */
 
 const CONFIG = {
@@ -10,8 +9,8 @@ const CONFIG = {
 
     // --- SUPABASE CONFIGURATION ---
     // Pega aquí tus datos de Supabase. Si están vacíos, la app usará modo local automáticamente.
-    supabaseUrl: 'https://khvpksklcwyfmsxsgyde.supabase.co',
-    supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtodnBrc2tsY3d5Zm1zeHNneWRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1NTgwMzEsImV4cCI6MjA5NzEzNDAzMX0.Rq0_mWYC3jeWUTHb81eXaAmHoWFHDqCTjaIA2J9e5rE',
+    supabaseUrl: 'https://your-project-id.supabase.co',
+    supabaseKey: 'your-anon-key-here',
     // ----------------------------
 
     services: [
@@ -65,9 +64,9 @@ const app = {
     },
 
     init() {
-        console.log('Adam Barber Club - High Performance Mode');
+        console.log('Adam Barber Club - Optimizing Load...');
 
-        // 1. UI Initialization (Immediate - no awaits)
+        // 1. UI Initialization (Immediate)
         this.renderServices();
         this.setupDatePicker();
         this.syncMainPageBarbers();
@@ -76,7 +75,7 @@ const app = {
         // 2. Supabase Initialization
         this.initSupabase();
 
-        // 3. Load Data (Non-blocking / Background Sync)
+        // 3. Load Data (Non-blocking)
         this.loadBookings();
     },
 
@@ -106,7 +105,7 @@ const app = {
             if (this.state.step === 4) this.renderBarbers();
         }
 
-        // SECOND: Sync with Cloud in background (Silent Sync)
+        // SECOND: Sync with Cloud in background
         if (this.state.isCloudConnected) {
             try {
                 const { data, error } = await this.supabase
@@ -118,12 +117,9 @@ const app = {
                     this.state.bookings = data;
                     localStorage.setItem(CONFIG.storageKey, JSON.stringify(data));
 
-                    // Update UI ONLY if the user is currently on a step that uses bookings
+                    // Refresh UI only if it's currently visible to avoid flicker
                     if (this.state.step === 3) this.renderTimeSlots();
                     if (this.state.step === 4) this.renderBarbers();
-                    if (document.getElementById('staff-agenda-view').classList.contains('hidden') === false) {
-                        this.renderStaffBookings();
-                    }
                 }
             } catch (e) {
                 console.error('Silent Sync Error:', e);
@@ -458,13 +454,14 @@ const app = {
             try {
                 const { error } = await this.supabase.from('bookings').insert([booking]);
                 if (error) throw error;
-                await this.loadBookings();
+                await this.loadBookings(); // Sync cloud state back to local
             } catch (e) {
                 console.error('Cloud save error:', e);
                 alert('Error al guardar en la nube, se guardó localmente.');
             }
         }
 
+        // Always save locally as a backup
         this.state.bookings.push(booking);
         localStorage.setItem(CONFIG.storageKey, JSON.stringify(this.state.bookings));
 
@@ -532,7 +529,7 @@ const app = {
 
     async handleBookingAction(index) {
         const isDeletedView = this.state.showDeleted;
-        const currentList = isDeletedView ? this.state.bookings.filter(b => b.is_deleted) : this.state.bookings.filter(b => !b.is_deleted);
+        const currentList = isDeletedView ? this.state.bookings.filter(b => b.is_deleted) : this.state.bookings;
         const booking = currentList[index];
 
         if (!isDeletedView) {
