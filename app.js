@@ -64,8 +64,6 @@ const app = {
         this.renderSocialFeed();
         this.initSupabase();
         this.loadBookings();
-
-        // Auto-sincronización cada 30 segundos para turnos en tiempo real
         setInterval(() => this.loadBookings(), 30000);
     },
 
@@ -83,14 +81,12 @@ const app = {
     async loadBookings() {
         const cached = localStorage.getItem(CONFIG.storageKey);
         if (cached) this.state.bookings = JSON.parse(cached);
-
         if (this.state.isCloudConnected) {
             try {
                 const { data, error } = await this.supabase
                     .from('bookings')
                     .select('*')
                     .order('created_at', { ascending: false });
-
                 if (!error && data) {
                     this.state.bookings = data;
                     localStorage.setItem(CONFIG.storageKey, JSON.stringify(data));
@@ -244,7 +240,7 @@ const app = {
             if (this.state.selectedDate === todayStr && (slotHour < currentHour || (slotHour === currentHour && slotMinute <= currentMinute))) isPastSlot = true;
             const isFull = CONFIG.barbers.every(barber => this.isSlotTaken(this.state.selectedDate, slot, barber.id));
             let isSpecificBarberTaken = false;
-            if (this.state.selectedBarber) isSpecificBarberTaken = this.isSlotTaken(this.state.selectedDate, slot, this.state.selectedBarber);
+            if (this.state.selectedBarber) isSpecificBarberTaken = this.isSlotTaken(this.state.selectedDate, slot, this.state.selectedBar laId);
             const isSelected = this.state.selectedTime === slot;
             const isDisabled = isFull || isSpecificBarberTaken || isPastSlot;
             return `<div onclick="${isDisabled ? '' : `app.selectTime('${slot}')`}"
@@ -289,7 +285,6 @@ const app = {
 
     isSlotTaken(date, time, barberId) {
         if (!date || !time) return false;
-        // FIX: Cambiado barberId a barber_id para coincidir con la base de datos
         return this.state.bookings.some(b => !b.is_deleted && b.date === date && b.time === time && b.barber_id === barberId);
     },
 
@@ -297,7 +292,7 @@ const app = {
         const barber = CONFIG.barbers.find(b => b.id === this.state.selectedBarber);
         const services = this.state.selectedServices.map(id => CONFIG.services.find(s => s.id === id).name).join(', ');
         document.getElementById('sum-service').innerText = services || 'No seleccionado';
-        document.getElementById('sum-barber').innerText = barber ? barber.name idea: 'No seleccionado';
+        document.getElementById('sum-barber').innerText = barber ? barber.name : 'No seleccionado';
         document.getElementById('sum-date').innerText = this.state.selectedDate || 'No seleccionada';
         document.getElementById('sum-time').innerText = this.state.selectedTime || 'No seleccionada';
         document.getElementById('sum-name').innerText = document.getElementById('customer-name').value || 'No ingresado';
@@ -307,7 +302,6 @@ const app = {
         const customerName = document.getElementById('customer-name').value;
         const customerPhone = document.getElementById('customer-phone').value;
         if (!customerName || !customerPhone) return alert('Ingresa nombre y teléfono.');
-
         const barber = CONFIG.barbers.find(b => b.id === this.state.selectedBarber);
         let totalCost = 0;
         const serviceNames = this.state.selectedServices.map(id => {
@@ -315,19 +309,17 @@ const app = {
             if (s) { totalCost += parseInt(s.price.replace(/\./g, '')); return s.name; }
             return 'Desconocido';
         });
-
         const booking = {
             customer_name: customerName,
             customer_phone: customerPhone,
             date: this.state.selectedDate,
             time: this.state.selectedTime,
-            barber_id: this.state.selectedBarber, // FIX: barber_id coincidiendo con SQL
+            barber_id: this.state.selectedBarber,
             barber_name: barber ? barber.name : 'Desconocido',
             services: serviceNames,
             total_cost: totalCost.toLocaleString('pt-BR') + ' Gs',
             is_deleted: false
         };
-
         if (this.state.isCloudConnected) {
             try {
                 const { error } = await this.supabase.from('bookings').insert([booking]);
@@ -383,7 +375,6 @@ const app = {
             if (this.state.isCloudConnected) await this.supabase.from('bookings').delete().eq('id', booking.id);
             this.state.bookings.splice(index, 1);
             localStorage.setItem(CONFIG.storageKey, JSON.stringify(this.state.bookings));
-            this.renderStaffBooked();
             this.renderStaffBookings();
         }
     },
@@ -392,7 +383,6 @@ const app = {
         const isDeletedView = this.state.showDeleted;
         const currentList = isDeletedView ? this.state.bookings.filter(b => b.is_deleted) : this.state.bookings.filter(b => !b.is_deleted);
         const booking = currentList[index];
-
         if (!isDeletedView) {
             if (confirm(`¿Eliminar cita de ${booking.customer_name}?`)) {
                 if (this.state.isCloudConnected) await this.supabase.from('bookings').update({ is_deleted: true }).eq('id', booking.id);
