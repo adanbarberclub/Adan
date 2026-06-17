@@ -307,18 +307,6 @@ const app = {
 
     // ===================== DURATION & TIME HELPERS =====================
 
-    generateSlots() {
-        // Generate 15-minute slots from 09:00 to 19:00
-        const slots = [];
-        for (let h = 9; h <= 19; h++) {
-            for (let m = 0; m < 60; m += 15) {
-                const time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-                slots.push(time);
-            }
-        }
-        return slots;
-    },
-
     timeToMinutes(timeStr) {
         const [h, m] = timeStr.split(':').map(Number);
         return h * 60 + m;
@@ -359,7 +347,7 @@ const app = {
         const currentMinute = now.getMinutes();
         const todayStr = new Date().toISOString().split('T')[0];
 
-        const slots = this.generateSlots();
+        const slots = CONFIG.timeSlots;
 
         container.innerHTML = slots.map(slot => {
             const [slotHour, slotMinute] = slot.split(':').map(Number);
@@ -808,6 +796,20 @@ const app = {
 
         if (this.state.step === 3) this.renderTimeSlots();
         if (this.state.step === 4) this.renderBarbers();
+    },
+
+    confirmBlocks() {
+        const btn = document.getElementById('block-save-btn');
+        if (btn) {
+            btn.textContent = '✓ Guardado';
+            btn.classList.remove('border-gold/30', 'text-platinum', 'hover:border-gold', 'hover:text-gold');
+            btn.classList.add('border-green-500', 'text-green-400');
+            setTimeout(() => {
+                btn.textContent = 'Aplicar Cambios';
+                btn.classList.remove('border-green-500', 'text-green-400');
+                btn.classList.add('border-gold/30', 'text-platinum', 'hover:border-gold', 'hover:text-gold');
+            }, 2000);
+        }
     },
 
     // ===================== END BLOCK SCHEDULE METHODS =====================

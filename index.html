@@ -596,7 +596,10 @@
                         <!-- Populated by app.js -->
                     </div>
 
-                    <p class="text-[10px] text-platinum/40 mt-2 text-center font-light">Haz clic en una celda para bloquear/desbloquear ese horario. Los slots bloqueados (<span class="text-red-400">✕</span>) aparecen como ocupados en las reservas.</p>
+                    <div class="flex justify-center mt-3">
+                        <button id="block-save-btn" onclick="app.confirmBlocks()" class="text-xs border border-gold/30 px-6 py-2 text-platinum hover:border-gold hover:text-gold transition-all uppercase tracking-widest font-bold">Aplicar Cambios</button>
+                    </div>
+                    <p class="text-[10px] text-platinum/40 mt-2 text-center font-light">Haz clic en una celda para bloquear/desbloquear ese horario. Los slots bloqueados (<span class="text-red-400">✕</span>) aparecen como ocupados en las reservas. Los cambios se guardan automáticamente en la nube.</p>
                 </div>
 
                 <div class="overflow-x-auto">
