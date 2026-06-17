@@ -55,7 +55,6 @@ const app = {
         customerPhone: '',
         viewMonth: new Date().getMonth(),
         viewYear: new Date().getFullYear(),
-        showDeleted: false,
         bookings: [],
         db: null
     },
@@ -119,6 +118,8 @@ const app = {
         const staffView = document.getElementById('staff-agenda-view');
         if (staffView && !staffView.classList.contains('hidden')) {
             this.renderStaffBookings();
+            this.updateCompletedCounter();
+            this.updateIncomeReport();
         }
     },
 
@@ -140,7 +141,7 @@ const app = {
         if (!igContainer || !tkContainer) return;
         igContainer.innerHTML = CONFIG.socialFeed.instagram.map(imgSrc => `
             <div class="group relative overflow-hidden rounded-sm border border-gold/20 bg-charcoal aspect-[9/16] cursor-pointer">
-                <img src="${imgSrc}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt="Instagram Post">
+                <img src="${imgSrc}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt="Instagram Post" loading="lazy">
                 <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 bg-obsidian/40">
                     <a href="https://www.instagram.com/adan_barberclub/" target="_blank" class="bg-gold text-obsidian p-3 rounded-full"><i class="fa-brands fa-instagram"></i></a>
                 </div>
@@ -148,7 +149,7 @@ const app = {
         `).join('');
         tkContainer.innerHTML = CONFIG.socialFeed.tiktok.map(imgSrc => `
             <div class="group relative overflow-hidden rounded-sm border border-gold/20 bg-charcoal aspect-[9/16] cursor-pointer">
-                <img src="${imgSrc}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt="TikTok Post">
+                <img src="${imgSrc}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt="TikTok Post" loading="lazy">
                 <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 bg-obsidian/40">
                     <a href="https://www.tiktok.com/@adanbarberclub?_r=1&_t=ZS-97DKcxu3ouq" target="_blank" class="bg-gold text-obsidian p-3 rounded-full"><i class="fa-brands fa-tiktok"></i></a>
                 </div>
@@ -285,7 +286,7 @@ const app = {
             const isSelected = this.state.selectedBarber === barber.id;
             return `<div onclick="${isTaken ? `app.handleBarberTaken('${barber.name}')` : `app.selectBarber('${barber.id}')`}"
                      class="p-4 bg-obsidian border ${isSelected ? 'border-gold bg-gold/10' : 'border-gold/30'} cursor-pointer hover:border-gold transition-all flex items-center gap-4 group ${isTaken ? 'opacity-60' : ''}">
-                    <img src="${barber.img}" class="w-12 h-12 rounded-full object-cover border border-gold/50">
+                    <img src="${barber.img}" class="w-12 h-12 rounded-full object-cover border border-gold/50" loading="lazy">
                     <div class="group-hover:text-gold transition-colors flex-grow"><div class="font-bold">${barber.name}</div></div>
                     ${isTaken ? '<span class="text-red-500 text-xs font-bold uppercase">Ocupado</span>' : ''}
                 </div>`;
@@ -305,7 +306,7 @@ const app = {
 
     isSlotTaken(date, time, barberId) {
         if (!date || !time) return false;
-        return this.state.bookings.some(b => !b.is_deleted && b.date === date && b.time === time && b.barber_id === barberId);
+        return this.state.bookings.some(b => !b.is_deleted && !b.completed && b.date === date && b.time === time && b.barber_id === barberId);
     },
 
     renderSummary() {
@@ -315,7 +316,6 @@ const app = {
         document.getElementById('sum-barber').innerText = barber ? barber.name : 'No seleccionado';
         document.getElementById('sum-date').innerText = this.state.selectedDate || 'No seleccionada';
         document.getElementById('sum-time').innerText = this.state.selectedTime || 'No seleccionada';
-        document.getElementById('sum-name').innerText = document.getElementById('customer-name').value || 'No ingresado';
     },
 
     async confirmBooking() {
@@ -338,7 +338,8 @@ const app = {
             barber_name: barber ? barber.name : 'Desconocido',
             services: serviceNames,
             total_cost: totalCost.toLocaleString('pt-BR') + ' Gs',
-            is_deleted: false
+            is_deleted: false,
+            completed: false
         };
         if (this.state.db) {
             try {
@@ -376,6 +377,8 @@ const app = {
             document.getElementById('staff-agenda-view').classList.remove('hidden');
             this.populateBarberFilter();
             this.renderStaffBookings();
+            this.updateCompletedCounter();
+            this.updateIncomeReport();
         } else alert('PIN incorrecto');
     },
 
@@ -386,59 +389,38 @@ const app = {
 
     closeStaff() { document.getElementById('staff-modal').classList.add('hidden'); },
 
-    async markAsCompleted(index) {
-        const booking = this.state.bookings[index];
+    async markAsCompleted(bookingId) {
+        const booking = this.state.bookings.find(b => b.id === bookingId);
+        if (!booking) return;
         if (confirm(`¿Cita realizada?`)) {
+            const completedAt = Date.now();
             if (this.state.db) {
                 try {
-                    await firebase.database().ref('bookings/' + booking.id).remove();
-                } catch (e) { console.error('Firebase remove error:', e); }
+                    await firebase.database().ref('bookings/' + booking.id).update({ completed: true, completed_at: completedAt });
+                } catch (e) { console.error('Firebase update error:', e); }
             }
-            this.state.bookings.splice(index, 1);
+            booking.completed = true;
+            booking.completed_at = completedAt;
+            localStorage.setItem(CONFIG.storageKey, JSON.stringify(this.state.bookings));
+            this.renderStaffBookings();
+            this.updateCompletedCounter();
+            this.updateIncomeReport();
+        }
+    },
+
+    async handleBookingAction(bookingId) {
+        const booking = this.state.bookings.find(b => b.id === bookingId);
+        if (!booking) return;
+        if (confirm(`¿Eliminar cita de ${booking.customer_name}?`)) {
+            if (this.state.db) {
+                try {
+                    await firebase.database().ref('bookings/' + booking.id).update({ is_deleted: true });
+                } catch (e) { console.error('Firebase update error:', e); }
+            }
+            booking.is_deleted = true;
             localStorage.setItem(CONFIG.storageKey, JSON.stringify(this.state.bookings));
             this.renderStaffBookings();
         }
-    },
-
-    async handleBookingAction(index) {
-        const isDeletedView = this.state.showDeleted;
-        const currentList = isDeletedView ? this.state.bookings.filter(b => b.is_deleted) : this.state.bookings.filter(b => !b.is_deleted);
-        const booking = currentList[index];
-        if (!isDeletedView) {
-            if (confirm(`¿Eliminar cita de ${booking.customer_name}?`)) {
-                if (this.state.db) {
-                    try {
-                        await firebase.database().ref('bookings/' + booking.id).update({ is_deleted: true });
-                    } catch (e) { console.error('Firebase update error:', e); }
-                }
-                const bIdx = this.state.bookings.findIndex(b => b.id === booking.id);
-                this.state.bookings[bIdx].is_deleted = true;
-                localStorage.setItem(CONFIG.storageKey, JSON.stringify(this.state.bookings));
-                this.renderStaffBookings();
-            }
-        } else {
-            if (confirm(`¿Restaurar cita de ${booking.customer_name}?`)) {
-                if (this.state.db) {
-                    try {
-                        await firebase.database().ref('bookings/' + booking.id).update({ is_deleted: false });
-                    } catch (e) { console.error('Firebase update error:', e); }
-                }
-                const bIdx = this.state.bookings.findIndex(b => b.id === booking.id);
-                this.state.bookings[bIdx].is_deleted = false;
-                localStorage.setItem(CONFIG.storageKey, JSON.stringify(this.state.bookings));
-                this.renderStaffBookings();
-            }
-        }
-    },
-
-    toggleDeletedView() {
-        this.state.showDeleted = !this.state.showDeleted;
-        const btn = document.getElementById('btn-toggle-deleted');
-        if (btn) {
-            btn.innerText = this.state.showDeleted ? 'Ver Activas' : 'Ver Eliminadas';
-            btn.classList.toggle('border-gold', this.state.showDeleted);
-        }
-        this.renderStaffBookings();
     },
 
     populateBarberFilter() {
@@ -453,17 +435,112 @@ const app = {
         });
     },
 
+    updateCompletedCounter() {
+        const haircutEl = document.getElementById('haircut-count');
+        const otherEl = document.getElementById('other-count');
+        if (!haircutEl || !otherEl) return;
+
+        // Service IDs that count as "corte"
+        const corteIds = ['clásico', 'moderno', 'corte_barba', 'corte_barba_perfil', 'full_exp'];
+        // Map IDs to service names for comparison
+        const corteNames = corteIds.map(id => {
+            const svc = CONFIG.services.find(s => s.id === id);
+            return svc ? svc.name : null;
+        }).filter(Boolean);
+
+        const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        const recentBookings = this.state.bookings.filter(b =>
+            b.completed === true && b.completed_at && b.completed_at >= sevenDaysAgo
+        );
+
+        let haircutCount = 0;
+        let otherCount = 0;
+
+        recentBookings.forEach(b => {
+            if (!b.services || b.services.length === 0) {
+                // No services info — count as other by default
+                otherCount++;
+                return;
+            }
+            // Check if ANY service in this booking is a haircut type
+            const hasHaircut = b.services.some(sName => corteNames.includes(sName));
+            if (hasHaircut) {
+                haircutCount++;
+            } else {
+                otherCount++;
+            }
+        });
+
+        haircutEl.textContent = haircutCount;
+        otherEl.textContent = otherCount;
+    },
+
+    updateIncomeReport() {
+        const incomeEl = document.getElementById('weekly-income');
+        const barberBreakdownEl = document.getElementById('income-per-barber');
+        if (!incomeEl || !barberBreakdownEl) return;
+
+        // Calculate start of current week (Monday 00:00:00)
+        const now = new Date();
+        const dayOfWeek = now.getDay();
+        const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayOffset);
+        monday.setHours(0, 0, 0, 0);
+        const weekStart = monday.getTime();
+
+        // Filter completed bookings this week
+        const weekBookings = this.state.bookings.filter(b =>
+            b.completed === true && b.completed_at && b.completed_at >= weekStart
+        );
+
+        // Calculate total income and per-barber breakdown
+        let totalIncome = 0;
+        const barberIncome = {};
+        CONFIG.barbers.forEach(b => { barberIncome[b.id] = 0; });
+
+        weekBookings.forEach(b => {
+            let cost = 0;
+            if (b.total_cost) {
+                // Parse stored format like "40.000 Gs"
+                const parsed = parseInt(b.total_cost.replace(/\./g, '').replace(' Gs', ''));
+                if (!isNaN(parsed)) cost = parsed;
+            } else if (b.services && b.services.length > 0) {
+                // Fallback: calculate from services list
+                b.services.forEach(sName => {
+                    const svc = CONFIG.services.find(s => s.name === sName);
+                    if (svc) cost += parseInt(svc.price.replace(/\./g, ''));
+                });
+            }
+            totalIncome += cost;
+            if (b.barber_id && barberIncome[b.barber_id] !== undefined) {
+                barberIncome[b.barber_id] += cost;
+            }
+        });
+
+        // Update total
+        incomeEl.textContent = totalIncome.toLocaleString('pt-BR');
+
+        // Update per-barber breakdown
+        barberBreakdownEl.innerHTML = CONFIG.barbers.map(b => {
+            const income = barberIncome[b.id] || 0;
+            return `<div class="border-l border-gold/10 first:border-l-0">
+                        <div class="text-[10px] uppercase tracking-wider text-platinum">${b.name.split(' ')[0]}</div>
+                        <div class="text-sm font-bold gold-text">${income.toLocaleString('pt-BR')}</div>
+                    </div>`;
+        }).join('');
+    },
+
     renderStaffBookings() {
         const filterBarberId = document.getElementById('filter-barber').value;
         const body = document.getElementById('bookings-body');
         if (!body) return;
-        const bookings = this.state.showDeleted ? this.state.bookings.filter(b => b.is_deleted) : this.state.bookings.filter(b => !b.is_deleted);
-        const filtered = filterBarberId === 'all' ? bookings : bookings.filter(b => b.barber_id === filterBarberId);
+        const active = this.state.bookings.filter(b => !b.is_deleted && !b.completed);
+        const filtered = filterBarberId === 'all' ? active : active.filter(b => b.barber_id === filterBarberId);
         if (filtered.length === 0) {
             body.innerHTML = '<tr><td colspan="6" class="py-8 text-center opacity-50 italic">No hay citas programadas.</td></tr>';
             return;
         }
-        body.innerHTML = filtered.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)).map((b, idx) => `
+        body.innerHTML = filtered.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)).map(b => `
             <tr class="border-b border-gold/10 hover:bg-gold/5 transition-colors">
                 <td class="py-4 px-4">${b.date}</td>
                 <td class="py-4 px-4">${b.time}</td>
@@ -477,8 +554,8 @@ const app = {
                 </td>
                 <td class="py-4 px-4">
                     <div class="flex gap-2">
-                        ${!this.state.showDeleted ? `<button onclick="app.markAsCompleted(${idx})" class="text-xs uppercase p-1 border border-green-600 text-green-500 hover:bg-green-600 hover:text-white transition-all">Realizado</button>` : ''}
-                        <button onclick="app.handleBookingAction(${idx})" class="text-xs uppercase p-1 border ${this.state.showDeleted ? 'border-green-600 text-green-500 hover:bg-green-600 hover:text-white' : 'border-red-600 text-red-500 hover:bg-red-600 hover:text-white'} transition-all">${this.state.showDeleted ? 'Restaurar' : 'Eliminar'}</button>
+                        <button onclick="app.markAsCompleted('${b.id}')" class="text-xs uppercase p-1 border border-green-600 text-green-500 hover:bg-green-600 hover:text-white transition-all">Realizado</button>
+                        <button onclick="app.handleBookingAction('${b.id}')" class="text-xs uppercase p-1 border border-red-600 text-red-500 hover:bg-red-600 hover:text-white transition-all">Eliminar</button>
                     </div>
                 </td>
             </tr>
