@@ -21,15 +21,18 @@ const CONFIG = {
     // ----------------------------
 
     services: [
-        { id: 'clásico', name: 'Corte clásico', price: '40.000' },
-        { id: 'moderno', name: 'Corte moderno', price: '50.000' },
-        { id: 'barba', name: 'Afeitado de barba', price: '35.000' },
-        { id: 'corte_barba', name: 'Corte+barba', price: '70.000' },
-        { id: 'corte_barba_perfil', name: 'Corte+Barba+Perfilado', price: '80.000' },
-        { id: 'full_exp', name: 'Corte+Barba+Perfilado+Exfoliación', price: '90.000' },
-        { id: 'cejas', name: 'Perfilado de cejas', price: '10.000' },
-        { id: 'exfoliación', name: 'Exfoliación facial', price: '20.000' },
-        { id: 'limpieza', name: 'Limpieza capilar', price: '20.000' },
+        { id: 'clásico', name: 'Corte clásico', price: '40.000', duration: 40 },
+        { id: 'moderno', name: 'Corte moderno', price: '50.000', duration: 40 },
+        { id: 'barba', name: 'Afeitado de barba', price: '35.000', duration: 15 },
+        { id: 'corte_barba', name: 'Corte+barba', price: '70.000', duration: 60 },
+        { id: 'corte_barba_perfil', name: 'Corte+Barba+Perfilado', price: '80.000', duration: 60 },
+        { id: 'full_exp', name: 'Corte+Barba+Perfilado+Exfoliación', price: '90.000', duration: 60 },
+        { id: 'cejas', name: 'Perfilado de cejas', price: '10.000', duration: 10 },
+        { id: 'exfoliación', name: 'Exfoliación facial', price: '20.000', duration: 10 },
+        { id: 'limpieza', name: 'Limpieza capilar', price: '20.000', duration: 15 },
+        { id: 'corte_lavado', name: 'Corte + Lavado', price: '70.000', duration: 60 },
+        { id: 'depilacion_nasal', name: 'Depilación nasal', price: '15.000', duration: 7 },
+        { id: 'depilacion_nasal_oreja', name: 'Depilación nasal + oreja', price: '25.000', duration: 15 },
     ],
     barbers: [
         { id: 'cristhian', name: 'Cristhian Chávez', spec: 'Master Barber - Especialista in Fades', img: 'img/barber-cristhian.jpg' },
@@ -56,6 +59,9 @@ const app = {
         viewMonth: new Date().getMonth(),
         viewYear: new Date().getFullYear(),
         bookings: [],
+        blocks: [],
+        blockViewWeekStart: null,
+        blockViewBarber: null,
         db: null
     },
 
@@ -68,6 +74,15 @@ const app = {
         this.renderSocialFeed();
 
         this.initFirebase();
+
+        // Initialize block scheduler state
+        const now = new Date();
+        const dayOfWeek = now.getDay();
+        const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayOffset);
+        monday.setHours(0, 0, 0, 0);
+        this.state.blockViewWeekStart = monday;
+        this.state.blockViewBarber = CONFIG.barbers[0].id;
     },
 
     initFirebase() {
@@ -76,6 +91,7 @@ const app = {
             this.state.db = firebase.database();
             console.log('🔥 Firebase connected successfully');
             this.listenToBookings();
+            this.listenToBlocks();
         } catch (e) {
             console.error('Firebase Init Error:', e);
             alert('Error al conectar con la base de datos. Por favor, recarga la página.');
@@ -85,14 +101,12 @@ const app = {
     listenToBookings() {
         const bookingsRef = firebase.database().ref('bookings');
 
-        // Carga inicial desde Cache para evitar lag
         const cached = localStorage.getItem(CONFIG.storageKey);
         if (cached) {
             this.state.bookings = JSON.parse(cached);
             this.refreshUIComponents();
         }
 
-        // Escucha cambios en tiempo real (Sincronización instantánea)
         bookingsRef.on('value', (snapshot) => {
             const data = snapshot.val();
             const bookingsArray = [];
@@ -112,6 +126,35 @@ const app = {
         });
     },
 
+    listenToBlocks() {
+        const blocksRef = firebase.database().ref('blocks');
+
+        blocksRef.on('value', (snapshot) => {
+            const data = snapshot.val();
+            const blocksArray = [];
+
+            if (data) {
+                Object.keys(data).forEach(key => {
+                    blocksArray.push({ id: key, ...data[key] });
+                });
+            }
+
+            this.state.blocks = blocksArray;
+
+            const staffView = document.getElementById('staff-agenda-view');
+            if (staffView && !staffView.classList.contains('hidden')) {
+                this.renderBlockCalendar();
+            }
+
+            if (this.state.step === 3) this.renderTimeSlots();
+            if (this.state.step === 4) this.renderBarbers();
+
+            console.log('☁️ Sync: Blocks updated in real-time');
+        }, (error) => {
+            console.error('Firebase Blocks Read Error:', error);
+        });
+    },
+
     refreshUIComponents() {
         if (this.state.step === 3) this.renderTimeSlots();
         if (this.state.step === 4) this.renderBarbers();
@@ -120,6 +163,7 @@ const app = {
             this.renderStaffBookings();
             this.updateCompletedCounter();
             this.updateIncomeReport();
+            this.renderBlockCalendar();
         }
     },
 
@@ -192,14 +236,24 @@ const app = {
         if (this.state.step > 1) { this.state.step--; this.updateStepUI(); }
     },
 
+    formatDuration(minutes) {
+        if (minutes < 60) return `${minutes} min`;
+        const h = Math.floor(minutes / 60);
+        const m = minutes % 60;
+        return m > 0 ? `${h}h ${m}min` : `${h}h`;
+    },
+
     renderServices() {
         const container = document.getElementById('service-options');
         if (!container) return;
         container.innerHTML = CONFIG.services.map(service => `
             <div onclick="app.toggleService('${service.id}')"
                  class="p-4 bg-obsidian border ${this.state.selectedServices.includes(service.id) ? 'border-gold bg-gold/10' : 'border-gold/30'} cursor-pointer hover:border-gold transition-all flex justify-between items-center group">
-                <span class="group-hover:text-gold transition-colors">${service.name}</span>
-                <span class="text-gold font-bold">${service.price} Gs</span>
+                <div class="flex flex-col gap-0">
+                    <span class="group-hover:text-gold transition-colors">${service.name}</span>
+                    <span class="text-[10px] text-platinum/60">${this.formatDuration(service.duration)}</span>
+                </div>
+                <span class="text-gold font-bold text-sm">${service.price} Gs</span>
             </div>
         `).join('');
     },
@@ -209,6 +263,9 @@ const app = {
         if (index > -1) this.state.selectedServices.splice(index, 1);
         else this.state.selectedServices.push(serviceId);
         this.renderServices();
+        // Re-render time slots if on step 3 with new service selection
+        if (this.state.step === 3) this.renderTimeSlots();
+        if (this.state.step === 4) this.renderBarbers();
     },
 
     setupDatePicker() { this.renderCalendar(); },
@@ -248,30 +305,92 @@ const app = {
 
     selectDate(date) { this.state.selectedDate = date; this.renderCalendar(); },
 
+    // ===================== DURATION & TIME HELPERS =====================
+
+    generateSlots() {
+        // Generate 15-minute slots from 09:00 to 19:00
+        const slots = [];
+        for (let h = 9; h <= 19; h++) {
+            for (let m = 0; m < 60; m += 15) {
+                const time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                slots.push(time);
+            }
+        }
+        return slots;
+    },
+
+    timeToMinutes(timeStr) {
+        const [h, m] = timeStr.split(':').map(Number);
+        return h * 60 + m;
+    },
+
+    minutesToTime(minutes) {
+        const h = Math.floor(minutes / 60);
+        const m = minutes % 60;
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    },
+
+    getTotalDuration(serviceNames) {
+        let total = 0;
+        if (!serviceNames || serviceNames.length === 0) return 60; // Default 60min as fallback
+        serviceNames.forEach(name => {
+            const svc = CONFIG.services.find(s => s.name === name);
+            if (svc) total += svc.duration;
+        });
+        return total || 60; // Fallback to 60min if no duration found
+    },
+
+    getSelectedDuration() {
+        // Get total duration for currently selected services
+        const names = this.state.selectedServices.map(id => {
+            const svc = CONFIG.services.find(s => s.id === id);
+            return svc ? svc.name : '';
+        }).filter(Boolean);
+        return this.getTotalDuration(names);
+    },
+
+    // ===================== END HELPERS =====================
+
     renderTimeSlots() {
         const container = document.getElementById('time-slots');
         if (!container) return;
         const now = new Date();
         const currentHour = now.getHours();
         const currentMinute = now.getMinutes();
-        container.innerHTML = CONFIG.timeSlots.map(slot => {
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        const slots = this.generateSlots();
+
+        container.innerHTML = slots.map(slot => {
             const [slotHour, slotMinute] = slot.split(':').map(Number);
             let isPastSlot = false;
-            const todayStr = new Date().toISOString().split('T')[0];
             if (this.state.selectedDate === todayStr && (slotHour < currentHour || (slotHour === currentHour && slotMinute <= currentMinute))) isPastSlot = true;
+
             const isFull = CONFIG.barbers.every(barber => this.isSlotTaken(this.state.selectedDate, slot, barber.id));
             let isSpecificBarberTaken = false;
             if (this.state.selectedBarber) isSpecificBarberTaken = this.isSlotTaken(this.state.selectedDate, slot, this.state.selectedBarber);
+
             const isSelected = this.state.selectedTime === slot;
             const isDisabled = isFull || isSpecificBarberTaken || isPastSlot;
-            return `<div onclick="${isDisabled ? '' : `app.selectTime('${slot}')`}"
+
+            // Calculate end time for display
+            const duration = this.getSelectedDuration();
+            const endMin = this.timeToMinutes(slot) + duration;
+            const endTime = this.minutesToTime(endMin);
+
+            // Check if end time exceeds 19:00 (closing time)
+            const exceedsClosing = endMin > this.timeToMinutes('19:00');
+
+            return `<div onclick="${isDisabled || exceedsClosing ? '' : `app.selectTime('${slot}')`}"
                      class="p-2 text-center border cursor-pointer transition-all flex flex-col justify-center
-                     ${isDisabled ? 'border-platinum/20 text-platinum/30 cursor-not-allowed opacity-50' : 'border-gold/30 hover:border-gold'}
+                     ${isDisabled || exceedsClosing ? 'border-platinum/20 text-platinum/30 cursor-not-allowed opacity-50' : 'border-gold/30 hover:border-gold'}
                      ${isSelected ? 'bg-gold text-obsidian font-bold' : 'text-white'}
-                     ${isSpecificBarberTaken && !isFull && !isPastSlot ? 'border-red-500/50 bg-red-900/10' : ''}">
-                    <span class="text-sm">${slot}</span>
-                    ${isSpecificBarberTaken && !isFull && !isPastSlot ? '<span class="text-[8px] text-red-500 font-bold uppercase">Ocupado</span>' : ''}
+                     ${isSpecificBarberTaken && !isFull && !isPastSlot && !exceedsClosing ? 'border-red-500/50 bg-red-900/10' : ''}">
+                    <span class="text-sm font-bold">${slot}</span>
+                    ${!isDisabled && !isPastSlot && !exceedsClosing ? `<span class="text-[8px] text-platinum/60">→ ${endTime}</span>` : ''}
+                    ${isSpecificBarberTaken && !isFull && !isPastSlot && !exceedsClosing ? '<span class="text-[8px] text-red-500 font-bold uppercase">Ocupado</span>' : ''}
                     ${isPastSlot ? '<span class="text-[8px] text-platinum/50 font-bold uppercase">Pasado</span>' : ''}
+                    ${exceedsClosing && !isDisabled ? '<span class="text-[8px] text-platinum/50 font-bold uppercase">Cierra 19:00</span>' : ''}
                 </div>`;
         }).join('');
     },
@@ -306,16 +425,45 @@ const app = {
 
     isSlotTaken(date, time, barberId) {
         if (!date || !time) return false;
-        return this.state.bookings.some(b => !b.is_deleted && !b.completed && b.date === date && b.time === time && b.barber_id === barberId);
+
+        // Check blocks (exact time match)
+        const blockTaken = this.state.blocks.some(b => b.date === date && b.time === time && b.barber_id === barberId);
+        if (blockTaken) return true;
+
+        // Calculate the new booking's time range
+        const newStartMin = this.timeToMinutes(time);
+        const newDuration = this.getSelectedDuration();
+        const newEndMin = newStartMin + newDuration;
+
+        // Check if any existing booking overlaps with this time range
+        return this.state.bookings.some(b => {
+            if (b.is_deleted || b.completed) return false;
+            if (b.date !== date || b.barber_id !== barberId) return false;
+
+            const existingStartMin = this.timeToMinutes(b.time);
+            const existingServiceNames = b.services || [];
+            const existingDuration = this.getTotalDuration(existingServiceNames);
+            const existingEndMin = existingStartMin + existingDuration;
+
+            // Overlap: starts before other ends AND ends after other starts
+            return newStartMin < existingEndMin && newEndMin > existingStartMin;
+        });
     },
 
     renderSummary() {
         const barber = CONFIG.barbers.find(b => b.id === this.state.selectedBarber);
         const services = this.state.selectedServices.map(id => CONFIG.services.find(s => s.id === id).name).join(', ');
+        const totalMin = this.getSelectedDuration();
         document.getElementById('sum-service').innerText = services || 'No seleccionado';
         document.getElementById('sum-barber').innerText = barber ? barber.name : 'No seleccionado';
         document.getElementById('sum-date').innerText = this.state.selectedDate || 'No seleccionada';
         document.getElementById('sum-time').innerText = this.state.selectedTime || 'No seleccionada';
+        const durEl = document.getElementById('sum-duration');
+        if (durEl) {
+            const endMin = this.timeToMinutes(this.state.selectedTime) + totalMin;
+            const endTime = this.minutesToTime(endMin);
+            durEl.innerText = `${this.formatDuration(totalMin)} (${this.state.selectedTime} - ${endTime})`;
+        }
     },
 
     async confirmBooking() {
@@ -326,18 +474,23 @@ const app = {
         let totalCost = 0;
         const serviceNames = this.state.selectedServices.map(id => {
             const s = CONFIG.services.find(serv => serv.id === id);
-            if (s) { totalCost += parseInt(s.price.replace(/\./g, '')); return s.name; }
+            if (s) { totalCost += parseInt(s.price.replace(/\\./g, '')); return s.name; }
             return 'Desconocido';
         });
+        const totalDuration = this.getTotalDuration(serviceNames);
+        const endTime = this.minutesToTime(this.timeToMinutes(this.state.selectedTime) + totalDuration);
+
         const booking = {
             customer_name: customerName,
             customer_phone: customerPhone,
             date: this.state.selectedDate,
             time: this.state.selectedTime,
+            end_time: endTime,
             barber_id: this.state.selectedBarber,
             barber_name: barber ? barber.name : 'Desconocido',
             services: serviceNames,
             total_cost: totalCost.toLocaleString('pt-BR') + ' Gs',
+            total_duration: totalDuration,
             is_deleted: false,
             completed: false
         };
@@ -359,7 +512,8 @@ const app = {
         const dateObj = new Date(booking.date + 'T00:00:00');
         const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
         const formattedDate = `${dateObj.getDate()} de ${monthNames[dateObj.getMonth()]}`;
-        const message = `💈 *Cita Solicitada - Adan BarberClub* 💈\n\n👤 **Cliente:** ${booking.customer_name}\n✂️ **Servicios:** ${servicesText}\n💰 **Total:** ${booking.total_cost}\n👨‍🦱 **Barbero:** ${booking.barber_name}\n📅 **Fecha:** ${formattedDate}\n⏰ **Hora:** ${booking.time}\n\n*Por favor, confirma la disponibilidad de este espacio.*`;
+        const endTime = booking.end_time || this.minutesToTime(this.timeToMinutes(booking.time) + (booking.total_duration || 60));
+        const message = `💈 *Cita Solicitada - Adan BarberClub* 💈\n\n👤 **Cliente:** ${booking.customer_name}\n✂️ **Servicios:** ${servicesText}\n💰 **Total:** ${booking.total_cost}\n👨‍🦱 **Barbero:** ${booking.barber_name}\n📅 **Fecha:** ${formattedDate}\n⏰ **Horario:** ${booking.time} - ${endTime}\n\n*Por favor, confirma la disponibilidad de este espacio.*`;
         window.open(`https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank');
         this.closeBooking();
     },
@@ -379,6 +533,7 @@ const app = {
             this.renderStaffBookings();
             this.updateCompletedCounter();
             this.updateIncomeReport();
+            this.renderBlockCalendar();
         } else alert('PIN incorrecto');
     },
 
@@ -440,9 +595,7 @@ const app = {
         const otherEl = document.getElementById('other-count');
         if (!haircutEl || !otherEl) return;
 
-        // Service IDs that count as "corte"
-        const corteIds = ['clásico', 'moderno', 'corte_barba', 'corte_barba_perfil', 'full_exp'];
-        // Map IDs to service names for comparison
+        const corteIds = ['clásico', 'moderno', 'corte_barba', 'corte_barba_perfil', 'full_exp', 'corte_lavado'];
         const corteNames = corteIds.map(id => {
             const svc = CONFIG.services.find(s => s.id === id);
             return svc ? svc.name : null;
@@ -458,11 +611,9 @@ const app = {
 
         recentBookings.forEach(b => {
             if (!b.services || b.services.length === 0) {
-                // No services info — count as other by default
                 otherCount++;
                 return;
             }
-            // Check if ANY service in this booking is a haircut type
             const hasHaircut = b.services.some(sName => corteNames.includes(sName));
             if (hasHaircut) {
                 haircutCount++;
@@ -480,7 +631,6 @@ const app = {
         const barberBreakdownEl = document.getElementById('income-per-barber');
         if (!incomeEl || !barberBreakdownEl) return;
 
-        // Calculate start of current week (Monday 00:00:00)
         const now = new Date();
         const dayOfWeek = now.getDay();
         const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
@@ -488,12 +638,10 @@ const app = {
         monday.setHours(0, 0, 0, 0);
         const weekStart = monday.getTime();
 
-        // Filter completed bookings this week
         const weekBookings = this.state.bookings.filter(b =>
             b.completed === true && b.completed_at && b.completed_at >= weekStart
         );
 
-        // Calculate total income and per-barber breakdown
         let totalIncome = 0;
         const barberIncome = {};
         CONFIG.barbers.forEach(b => { barberIncome[b.id] = 0; });
@@ -501,14 +649,12 @@ const app = {
         weekBookings.forEach(b => {
             let cost = 0;
             if (b.total_cost) {
-                // Parse stored format like "40.000 Gs"
-                const parsed = parseInt(b.total_cost.replace(/\./g, '').replace(' Gs', ''));
+                const parsed = parseInt(b.total_cost.replace(/\\./g, '').replace(' Gs', ''));
                 if (!isNaN(parsed)) cost = parsed;
             } else if (b.services && b.services.length > 0) {
-                // Fallback: calculate from services list
                 b.services.forEach(sName => {
                     const svc = CONFIG.services.find(s => s.name === sName);
-                    if (svc) cost += parseInt(svc.price.replace(/\./g, ''));
+                    if (svc) cost += parseInt(svc.price.replace(/\\./g, ''));
                 });
             }
             totalIncome += cost;
@@ -517,10 +663,8 @@ const app = {
             }
         });
 
-        // Update total
         incomeEl.textContent = totalIncome.toLocaleString('pt-BR');
 
-        // Update per-barber breakdown
         barberBreakdownEl.innerHTML = CONFIG.barbers.map(b => {
             const income = barberIncome[b.id] || 0;
             return `<div class="border-l border-gold/10 first:border-l-0">
@@ -529,6 +673,144 @@ const app = {
                     </div>`;
         }).join('');
     },
+
+    // ===================== BLOCK SCHEDULE METHODS =====================
+
+    generateBlockSlots() {
+        // Block calendar uses 30-min intervals for a cleaner view
+        const slots = [];
+        for (let h = 9; h <= 19; h++) {
+            for (let m = 0; m < 60; m += 30) {
+                const time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                slots.push(time);
+            }
+        }
+        return slots;
+    },
+
+    renderBlockCalendar() {
+        const weekStart = this.state.blockViewWeekStart;
+        const barberId = this.state.blockViewBarber;
+        if (!weekStart || !barberId) return;
+
+        const weekLabelEl = document.getElementById('block-week-label');
+        if (weekLabelEl) {
+            const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+            const sunDate = new Date(weekStart);
+            sunDate.setDate(sunDate.getDate() + 6);
+            weekLabelEl.textContent = `Semana del ${weekStart.getDate()} ${monthNames[weekStart.getMonth()]}`;
+        }
+
+        const tabsEl = document.getElementById('block-barber-tabs');
+        if (tabsEl) {
+            tabsEl.innerHTML = CONFIG.barbers.map(b => `
+                <button onclick="app.selectBlockBarber('${b.id}')"
+                        class="px-4 py-2 text-xs uppercase tracking-widest transition-all ${b.id === barberId ? 'bg-gold text-obsidian font-bold' : 'border border-gold/30 text-platinum hover:border-gold'}">
+                    ${b.name.split(' ')[0]}
+                </button>
+            `).join('');
+        }
+
+        const calendarEl = document.getElementById('block-calendar');
+        if (!calendarEl) return;
+
+        const dayNames = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayStr = today.toISOString().split('T')[0];
+        const blockSlots = this.generateBlockSlots();
+
+        let html = '<div class="overflow-x-auto">';
+        html += '<table class="w-full border-collapse">';
+
+        html += '<thead><tr>';
+        html += '<th class="bg-obsidian p-2 text-[10px] uppercase tracking-widest text-platinum font-bold border border-gold/10 w-[60px]">Hora</th>';
+        for (let i = 0; i < 7; i++) {
+            const day = new Date(weekStart);
+            day.setDate(day.getDate() + i);
+            const dateStr = day.toISOString().split('T')[0];
+            const isToday = dateStr === todayStr;
+            html += `<th class="bg-obsidian p-2 text-[10px] uppercase tracking-widest font-bold border border-gold/10 ${isToday ? 'text-gold' : 'text-platinum'}">${dayNames[i]}<br><span class="text-xs">${day.getDate()}</span></th>`;
+        }
+        html += '</tr></thead>';
+
+        html += '<tbody>';
+        blockSlots.forEach(slot => {
+            html += '<tr>';
+            html += `<td class="bg-obsidian p-2 text-[10px] text-platinum font-mono text-center border border-gold/10">${slot}</td>`;
+            for (let i = 0; i < 7; i++) {
+                const day = new Date(weekStart);
+                day.setDate(day.getDate() + i);
+                const dateStr = day.toISOString().split('T')[0];
+                const isPast = day < today;
+                const isBlocked = this.state.blocks.some(b => b.date === dateStr && b.time === slot && b.barber_id === barberId);
+                const isToday = dateStr === todayStr;
+
+                const bgClass = isBlocked
+                    ? 'bg-red-900/40'
+                    : (isToday ? 'bg-gold/5' : 'bg-obsidian');
+                const borderClass = isBlocked
+                    ? 'border-red-500/50'
+                    : 'border-gold/10';
+
+                html += `<td onclick="${isPast ? '' : `app.toggleBlock('${dateStr}','${slot}','${barberId}')`}"
+                            class="${bgClass} ${borderClass} border cursor-pointer hover:border-gold transition-all min-h-[32px] h-[32px] text-center ${isPast ? 'opacity-20 cursor-not-allowed' : ''}">
+                            ${isBlocked ? '<span class="text-red-400 text-sm font-bold">✕</span>' : (isPast ? '' : '<span class="text-platinum/20 text-xs">+</span>')}
+                        </td>`;
+            }
+            html += '</tr>';
+        });
+        html += '</tbody></table></div>';
+
+        calendarEl.innerHTML = html;
+    },
+
+    selectBlockBarber(barberId) {
+        this.state.blockViewBarber = barberId;
+        this.renderBlockCalendar();
+    },
+
+    changeBlockWeek(delta) {
+        const newStart = new Date(this.state.blockViewWeekStart);
+        newStart.setDate(newStart.getDate() + delta * 7);
+        this.state.blockViewWeekStart = newStart;
+        this.renderBlockCalendar();
+    },
+
+    async toggleBlock(date, time, barberId) {
+        const existingBlock = this.state.blocks.find(b => b.date === date && b.time === time && b.barber_id === barberId);
+
+        if (this.state.db) {
+            try {
+                if (existingBlock) {
+                    await firebase.database().ref('blocks/' + existingBlock.id).remove();
+                } else {
+                    await firebase.database().ref('blocks').push({
+                        date: date,
+                        time: time,
+                        barber_id: barberId,
+                        created_at: Date.now()
+                    });
+                }
+            } catch (e) {
+                console.error('Firebase block error:', e);
+            }
+        }
+
+        if (existingBlock) {
+            const idx = this.state.blocks.findIndex(b => b.id === existingBlock.id);
+            if (idx > -1) this.state.blocks.splice(idx, 1);
+        } else {
+            this.state.blocks.push({ id: 'local_' + Date.now(), date, time, barber_id: barberId, created_at: Date.now() });
+        }
+
+        this.renderBlockCalendar();
+
+        if (this.state.step === 3) this.renderTimeSlots();
+        if (this.state.step === 4) this.renderBarbers();
+    },
+
+    // ===================== END BLOCK SCHEDULE METHODS =====================
 
     renderStaffBookings() {
         const filterBarberId = document.getElementById('filter-barber').value;
@@ -540,10 +822,11 @@ const app = {
             body.innerHTML = '<tr><td colspan="6" class="py-8 text-center opacity-50 italic">No hay citas programadas.</td></tr>';
             return;
         }
-        body.innerHTML = filtered.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)).map(b => `
-            <tr class="border-b border-gold/10 hover:bg-gold/5 transition-colors">
+        body.innerHTML = filtered.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)).map(b => {
+            const endTime = b.end_time || this.minutesToTime(this.timeToMinutes(b.time) + (b.total_duration || 60));
+            return `<tr class="border-b border-gold/10 hover:bg-gold/5 transition-colors">
                 <td class="py-4 px-4">${b.date}</td>
-                <td class="py-4 px-4">${b.time}</td>
+                <td class="py-4 px-4">${b.time} - ${endTime}</td>
                 <td class="py-4 px-4">${b.barber_name}</td>
                 <td class="py-4 px-4">${b.services.join(', ')}</td>
                 <td class="py-4 px-4">
@@ -558,8 +841,8 @@ const app = {
                         <button onclick="app.handleBookingAction('${b.id}')" class="text-xs uppercase p-1 border border-red-600 text-red-500 hover:bg-red-600 hover:text-white transition-all">Eliminar</button>
                     </div>
                 </td>
-            </tr>
-        `).join('');
+            </tr>`;
+        }).join('');
     },
 
     openBooking() {
@@ -583,4 +866,9 @@ window.openStaffLogin = () => app.openStaffLogin();
 window.verifyStaff = () => app.verifyStaff();
 window.logoutStaff = () => app.logoutStaff();
 window.closeStaff = () => app.closeStaff();
+window.selectBarberDirect = (id) => app.selectBarberDirect(id);
+window.toggleMobileMenu = () => {
+    const menu = document.getElementById('mobile-menu');
+    if (menu) menu.classList.toggle('hidden');
+};
 window.onload = () => app.init();

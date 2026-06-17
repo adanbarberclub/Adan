@@ -501,6 +501,7 @@
                             <p class="flex justify-between"><span class="text-platinum">Barbero:</span> <span id="sum-barber" class="gold-text"></span></p>
                             <p class="flex justify-between"><span class="text-platinum">Fecha:</span> <span id="sum-date" class="gold-text"></span></p>
                             <p class="flex justify-between"><span class="text-platinum">Hora:</span> <span id="sum-time" class="gold-text"></span></p>
+                            <p class="flex justify-between border-t border-gold/10 pt-3 mt-2"><span class="text-platinum">⏱ Duración:</span> <span id="sum-duration" class="gold-text font-bold"></span></p>
                         </div>
                     </div>
                     <button onclick="app.confirmBooking()" class="w-full py-4 bg-green-600 text-white font-bold uppercase tracking-widest hover:bg-green-500 transition-all flex items-center justify-center gap-3">
@@ -573,6 +574,31 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Block Schedule Section -->
+                <div class="mb-6 border border-gold/20 bg-obsidian/50 p-4">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+                        <h3 class="text-lg font-serif gold-text"><i class="fa-solid fa-calendar-times mr-2"></i>Bloqueo de Horarios</h3>
+                        <div class="flex items-center gap-3">
+                            <button onclick="app.changeBlockWeek(-1)" class="text-xs border border-gold/30 px-3 py-1 text-platinum hover:text-gold hover:border-gold transition-all"><i class="fa-solid fa-chevron-left"></i> Anterior</button>
+                            <span id="block-week-label" class="text-sm text-platinum font-light min-w-[180px] text-center"></span>
+                            <button onclick="app.changeBlockWeek(1)" class="text-xs border border-gold/30 px-3 py-1 text-platinum hover:text-gold hover:border-gold transition-all">Siguiente <i class="fa-solid fa-chevron-right"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- Barber tabs -->
+                    <div class="flex flex-wrap gap-2 mb-4" id="block-barber-tabs">
+                        <!-- Populated by app.js -->
+                    </div>
+
+                    <!-- Calendar Grid -->
+                    <div id="block-calendar" class="overflow-x-auto">
+                        <!-- Populated by app.js -->
+                    </div>
+
+                    <p class="text-[10px] text-platinum/40 mt-2 text-center font-light">Haz clic en una celda para bloquear/desbloquear ese horario. Los slots bloqueados (<span class="text-red-400">✕</span>) aparecen como ocupados en las reservas.</p>
+                </div>
+
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-platinum font-light">
                         <thead class="text-white uppercase text-xs tracking-widest">
