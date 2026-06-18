@@ -151,8 +151,8 @@ const app = {
                 this.renderBlockCalendar();
             }
 
-            if (this.state.step === 3) this.renderTimeSlots();
-            if (this.state.step === 4) this.renderBarbers();
+            if (this.state.step === 3) this.renderBarbers();
+            if (this.state.step === 4) this.renderTimeSlots();
 
             console.log('☁️ Sync: Blocks updated in real-time');
         }, (error) => {
@@ -161,8 +161,8 @@ const app = {
     },
 
     refreshUIComponents() {
-        if (this.state.step === 3) this.renderTimeSlots();
-        if (this.state.step === 4) this.renderBarbers();
+        if (this.state.step === 3) this.renderBarbers();
+        if (this.state.step === 4) this.renderTimeSlots();
         const staffView = document.getElementById('staff-agenda-view');
         if (staffView && !staffView.classList.contains('hidden')) {
             this.renderStaffBookings();
@@ -222,18 +222,18 @@ const app = {
         }
         if (nextBtn) {
             nextBtn.classList.toggle('hidden', this.state.step === 5);
-            nextBtn.innerText = this.state.step === 4 ? 'Finalizar' : 'Siguiente';
+            nextBtn.innerText = this.state.step === 4 ? 'Siguiente' : 'Siguiente';
         }
-        if (this.state.step === 3) this.renderTimeSlots();
-        if (this.state.step === 4) this.renderBarbers();
+        if (this.state.step === 3) this.renderBarbers();
+        if (this.state.step === 4) this.renderTimeSlots();
         if (this.state.step === 5) this.renderSummary();
     },
 
     nextStep() {
         if (this.state.step === 1 && this.state.selectedServices.length === 0) return alert('Selecciona un servicio.');
         if (this.state.step === 2 && !this.state.selectedDate) return alert('Selecciona una fecha.');
-        if (this.state.step === 3 && !this.state.selectedTime) return alert('Selecciona un horario.');
-        if (this.state.step === 4 && !this.state.selectedBarber) return alert('Selecciona un maestro.');
+        if (this.state.step === 3 && !this.state.selectedBarber) return alert('Selecciona un maestro.');
+        if (this.state.step === 4 && !this.state.selectedTime) return alert('Selecciona un horario.');
         if (this.state.step < 5) { this.state.step++; this.updateStepUI(); }
     },
 
@@ -269,8 +269,8 @@ const app = {
         else this.state.selectedServices.push(serviceId);
         this.renderServices();
         // Re-render time slots if on step 3 with new service selection
-        if (this.state.step === 3) this.renderTimeSlots();
-        if (this.state.step === 4) this.renderBarbers();
+        if (this.state.step === 3) this.renderBarbers();
+        if (this.state.step === 4) this.renderTimeSlots();
     },
 
     setupDatePicker() { this.renderCalendar(); },
@@ -344,16 +344,17 @@ const app = {
 
     // ===================== END HELPERS =====================
 
-    generateDynamicSlots() {
-        // Combines hourly base slots + exact end times of existing bookings
+    generateDynamicSlots(barberId) {
+        // Combines hourly base slots + exact end times of existing bookings for a specific barber
         const baseSlots = CONFIG.timeSlots;
         const endTimesSet = new Set();
 
-        // Collect end times from all active bookings on the selected date
+        // Collect end times from active bookings for this barber on the selected date
         const dateBookings = this.state.bookings.filter(b =>
             b.date === this.state.selectedDate && !b.is_deleted && !b.completed
         );
         dateBookings.forEach(b => {
+            if (barberId && b.barber_id !== barberId) return;
             const startMin = this.timeToMinutes(b.time);
             const names = b.services || [];
             const duration = this.getTotalDuration(names);
@@ -363,9 +364,10 @@ const app = {
             }
         });
 
-        // Also add block end times (blocks are exact time matches, treat as 30min blocks)
+        // Also add block end times for this barber
         const dateBlocks = this.state.blocks.filter(b => b.date === this.state.selectedDate);
         dateBlocks.forEach(b => {
+            if (barberId && b.barber_id !== barberId) return;
             const blockEndMin = this.timeToMinutes(b.time) + 30;
             if (blockEndMin < this.timeToMinutes('18:00')) {
                 endTimesSet.add(this.minutesToTime(blockEndMin));
@@ -385,19 +387,24 @@ const app = {
         const currentMinute = now.getMinutes();
         const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
-        const slots = this.generateDynamicSlots();
+        // Generate slots for the selected barber only
+        const barberId = this.state.selectedBarber;
+        if (!barberId) {
+            container.innerHTML = '<p class="col-span-3 text-center text-platinum/50 italic py-8">Primero selecciona un maestro.</p>';
+            return;
+        }
+
+        const slots = this.generateDynamicSlots(barberId);
+        const barber = CONFIG.barbers.find(b => b.id === barberId);
 
         container.innerHTML = slots.map(slot => {
             const [slotHour, slotMinute] = slot.split(':').map(Number);
             let isPastSlot = false;
             if (this.state.selectedDate === todayStr && (slotHour < currentHour || (slotHour === currentHour && slotMinute <= currentMinute))) isPastSlot = true;
 
-            const isFull = CONFIG.barbers.every(barber => this.isSlotTaken(this.state.selectedDate, slot, barber.id));
-            let isSpecificBarberTaken = false;
-            if (this.state.selectedBarber) isSpecificBarberTaken = this.isSlotTaken(this.state.selectedDate, slot, this.state.selectedBarber);
-
+            const isTaken = this.isSlotTaken(this.state.selectedDate, slot, barberId);
             const isSelected = this.state.selectedTime === slot;
-            const isDisabled = isFull || isSpecificBarberTaken || isPastSlot;
+            const isDisabled = isTaken || isPastSlot;
 
             // Calculate end time for display
             const duration = this.getSelectedDuration();
@@ -411,29 +418,60 @@ const app = {
                      class="p-2 text-center border cursor-pointer transition-all flex flex-col justify-center
                      ${isDisabled || exceedsClosing ? 'border-platinum/20 text-platinum/30 cursor-not-allowed opacity-50' : 'border-gold/30 hover:border-gold'}
                      ${isSelected ? 'bg-gold text-obsidian font-bold' : 'text-white'}
-                     ${isSpecificBarberTaken && !isFull && !isPastSlot && !exceedsClosing ? 'border-red-500/50 bg-red-900/10' : ''}">
+                     ${isTaken && !isPastSlot && !exceedsClosing ? 'border-red-500/50 bg-red-900/10' : ''}">
                     <span class="text-sm font-bold">${slot}</span>
                     ${!isDisabled && !isPastSlot && !exceedsClosing ? `<span class="text-[8px] text-platinum/60">→ ${endTime}</span>` : ''}
-                    ${isSpecificBarberTaken && !isFull && !isPastSlot && !exceedsClosing ? '<span class="text-[8px] text-red-500 font-bold uppercase">Ocupado</span>' : ''}
+                    ${isTaken && !isPastSlot && !exceedsClosing ? '<span class="text-[8px] text-red-500 font-bold uppercase">Ocupado</span>' : ''}
                     ${isPastSlot ? '<span class="text-[8px] text-platinum/50 font-bold uppercase">Pasado</span>' : ''}
                     ${exceedsClosing && !isDisabled ? '<span class="text-[8px] text-platinum/50 font-bold uppercase">Cierra 19:00</span>' : ''}
                 </div>`;
         }).join('');
+
+        // Show barber name in the title area
+        if (barber) {
+            const titleEl = document.querySelector('#step-4 h3');
+            if (titleEl) titleEl.innerText = `4. Horarios de ${barber.name.split(' ')[0]}`;
+        }
     },
 
     selectTime(slot) { this.state.selectedTime = slot; this.renderTimeSlots(); },
+
+    getBarberAvailableCount(barberId) {
+        if (!this.state.selectedDate) return 0;
+        const slots = this.generateDynamicSlots(barberId);
+        let count = 0;
+        const now = new Date();
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        slots.forEach(slot => {
+            const [slotHour, slotMinute] = slot.split(':').map(Number);
+            let isPastSlot = false;
+            if (this.state.selectedDate === todayStr && (slotHour < currentHour || (slotHour === currentHour && slotMinute <= currentMinute))) isPastSlot = true;
+            if (!isPastSlot && !this.isSlotTaken(this.state.selectedDate, slot, barberId)) {
+                const duration = this.getSelectedDuration();
+                const endMin = this.timeToMinutes(slot) + duration;
+                if (endMin <= this.timeToMinutes('19:00')) count++;
+            }
+        });
+        return count;
+    },
 
     renderBarbers() {
         const container = document.getElementById('barber-options');
         if (!container) return;
         container.innerHTML = CONFIG.barbers.map(barber => {
-            const isTaken = this.isSlotTaken(this.state.selectedDate, this.state.selectedTime, barber.id);
             const isSelected = this.state.selectedBarber === barber.id;
-            return `<div onclick="${isTaken ? `app.handleBarberTaken('${barber.name}')` : `app.selectBarber('${barber.id}')`}"
-                     class="p-4 bg-obsidian border ${isSelected ? 'border-gold bg-gold/10' : 'border-gold/30'} cursor-pointer hover:border-gold transition-all flex items-center gap-4 group ${isTaken ? 'opacity-60' : ''}">
+            const availableCount = this.getBarberAvailableCount(barber.id);
+            const isFull = availableCount === 0 && this.state.selectedDate;
+            return `<div onclick="${isFull ? '' : `app.selectBarber('${barber.id}')`}"
+                     class="p-4 bg-obsidian border ${isSelected ? 'border-gold bg-gold/10' : 'border-gold/30'} cursor-pointer hover:border-gold transition-all flex items-center gap-4 group ${isFull ? 'opacity-50' : ''}">
                     <img src="${barber.img}" class="w-12 h-12 rounded-full object-cover border border-gold/50" loading="lazy">
-                    <div class="group-hover:text-gold transition-colors flex-grow"><div class="font-bold">${barber.name}</div></div>
-                    ${isTaken ? '<span class="text-red-500 text-xs font-bold uppercase">Ocupado</span>' : ''}
+                    <div class="flex-grow">
+                        <div class="font-bold group-hover:text-gold transition-colors">${barber.name}</div>
+                        ${this.state.selectedDate ? `<div class="text-[10px] text-platinum/60">${isFull ? 'Sin horarios disponibles' : `${availableCount} horario${availableCount !== 1 ? 's' : ''} disponible${availableCount !== 1 ? 's' : ''}`}</div>` : ''}
+                    </div>
+                    ${isFull ? '<span class="text-red-500 text-[10px] font-bold uppercase">Completo</span>' : ''}
                 </div>`;
         }).join('');
     },
@@ -832,8 +870,8 @@ const app = {
 
         this.renderBlockCalendar();
 
-        if (this.state.step === 3) this.renderTimeSlots();
-        if (this.state.step === 4) this.renderBarbers();
+        if (this.state.step === 3) this.renderBarbers();
+        if (this.state.step === 4) this.renderTimeSlots();
     },
 
     confirmBlocks() {
