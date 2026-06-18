@@ -39,7 +39,7 @@ const CONFIG = {
         { id: 'diego', name: 'Diego Adan', spec: 'Master Barber - Estilo Clásico & Tijera', img: 'img/barber-diego.jpg' },
         { id: 'ismael', name: 'Ismael Vázquez', spec: 'Master Barber - Especialista in Barba', img: 'img/barber-ismael.jpg' },
     ],
-    timeSlots: ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00'],
+    timeSlots: ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'],
     storageKey: 'adam_barber_bookings_cache',
     socialFeed: {
         instagram: ['img/Instagram image 1 change.jpg', 'img/Instagram imagen 2.jpg'],
