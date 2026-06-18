@@ -967,8 +967,4 @@ window.verifyStaff = () => app.verifyStaff();
 window.logoutStaff = () => app.logoutStaff();
 window.closeStaff = () => app.closeStaff();
 window.selectBarberDirect = (id) => app.selectBarberDirect(id);
-window.toggleMobileMenu = () => {
-    const menu = document.getElementById('mobile-menu');
-    if (menu) menu.classList.toggle('hidden');
-};
 window.onload = () => app.init();

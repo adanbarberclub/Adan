@@ -66,18 +66,10 @@
             <a href="#products" class="hover:text-gold transition-colors">Productos</a>
             <button onclick="openBooking()" class="bg-gold text-obsidian px-6 py-2 font-bold rounded-none hover:bg-white transition-all duration-300">Reservar Ahora</button>
         </div>
-        <div class="md:hidden text-2xl gold-text">
-            <i class="fa-solid fa-bars" onclick="toggleMobileMenu()"></i>
+        <div class="md:hidden">
+            <button onclick="openBooking()" class="bg-gold text-obsidian px-4 py-2 text-xs font-bold uppercase tracking-widest hover:bg-white transition-all duration-300">Reservar</button>
         </div>
     </nav>
-
-    <!-- Mobile Menu -->
-    <div id="mobile-menu" class="fixed inset-0 z-40 bg-obsidian hidden flex-col items-center justify-center gap-8 text-xl uppercase tracking-widest">
-        <a href="#services" onclick="toggleMobileMenu()" class="hover:text-gold">Servicios</a>
-        <a href="#barbers" onclick="toggleMobileMenu()" class="hover:text-gold">Maestros</a>
-        <a href="#products" onclick="toggleMobileMenu()" class="hover:text-gold">Productos</a>
-        <button onclick="openBooking(); toggleMobileMenu()" class="bg-gold text-obsidian px-8 py-3 font-bold">Reservar Ahora</button>
-    </div>
 
     <!-- Hero Section -->
     <section class="relative h-screen flex items-center justify-center text-center px-4">
