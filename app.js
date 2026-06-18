@@ -344,6 +344,39 @@ const app = {
 
     // ===================== END HELPERS =====================
 
+    generateDynamicSlots() {
+        // Combines hourly base slots + exact end times of existing bookings
+        const baseSlots = CONFIG.timeSlots;
+        const endTimesSet = new Set();
+
+        // Collect end times from all active bookings on the selected date
+        const dateBookings = this.state.bookings.filter(b =>
+            b.date === this.state.selectedDate && !b.is_deleted && !b.completed
+        );
+        dateBookings.forEach(b => {
+            const startMin = this.timeToMinutes(b.time);
+            const names = b.services || [];
+            const duration = this.getTotalDuration(names);
+            const endMin = startMin + duration;
+            if (endMin < this.timeToMinutes('18:00') && endMin > startMin) {
+                endTimesSet.add(this.minutesToTime(endMin));
+            }
+        });
+
+        // Also add block end times (blocks are exact time matches, treat as 30min blocks)
+        const dateBlocks = this.state.blocks.filter(b => b.date === this.state.selectedDate);
+        dateBlocks.forEach(b => {
+            const blockEndMin = this.timeToMinutes(b.time) + 30;
+            if (blockEndMin < this.timeToMinutes('18:00')) {
+                endTimesSet.add(this.minutesToTime(blockEndMin));
+            }
+        });
+
+        // Combine + deduplicate + sort
+        const allSlots = [...new Set([...baseSlots, ...endTimesSet])].sort();
+        return allSlots;
+    },
+
     renderTimeSlots() {
         const container = document.getElementById('time-slots');
         if (!container) return;
@@ -352,7 +385,7 @@ const app = {
         const currentMinute = now.getMinutes();
         const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
-        const slots = CONFIG.timeSlots;
+        const slots = this.generateDynamicSlots();
 
         container.innerHTML = slots.map(slot => {
             const [slotHour, slotMinute] = slot.split(':').map(Number);
