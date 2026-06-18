@@ -396,8 +396,33 @@ const app = {
 
         const slots = this.generateDynamicSlots(barberId);
         const barber = CONFIG.barbers.find(b => b.id === barberId);
+        const duration = this.getSelectedDuration();
 
-        container.innerHTML = slots.map(slot => {
+        // Check if "Ahora" is available (only for today's date)
+        let ahoraHtml = '';
+        if (this.state.selectedDate === todayStr) {
+            const nowMin = currentHour * 60 + currentMinute;
+            const endIfNow = nowMin + duration;
+            // Must start after 09:00, end before 19:00, and not overlap with existing bookings
+            if (nowMin >= this.timeToMinutes('09:00') && endIfNow <= this.timeToMinutes('19:00') && barberId) {
+                const nowTime = this.minutesToTime(nowMin);
+                const nowEndTime = this.minutesToTime(endIfNow);
+                // Check if it overlaps with any booking
+                const nowTaken = this.isSlotTaken(this.state.selectedDate, nowTime, barberId);
+                if (!nowTaken) {
+                    const isNowSelected = this.state.selectedTime === nowTime;
+                    ahoraHtml = `<div onclick="app.selectTime('${nowTime}')"
+                             class="p-3 text-center border-2 cursor-pointer transition-all flex flex-col justify-center items-center
+                             ${isNowSelected ? 'bg-green-900/30 border-green-500 text-green-400 font-bold' : 'border-green-500/50 bg-green-900/10 text-green-400 hover:bg-green-900/20'}">
+                            <span class="text-xs uppercase tracking-widest font-bold">🔹 Disponible ahora</span>
+                            <span class="text-lg font-bold">${nowTime}</span>
+                            <span class="text-[8px] text-green-400/70">→ ${nowEndTime}</span>
+                        </div>`;
+                }
+            }
+        }
+
+        container.innerHTML = (ahoraHtml ? `<div class="col-span-3 mb-1">${ahoraHtml}</div>` : '') + slots.map(slot => {
             const [slotHour, slotMinute] = slot.split(':').map(Number);
             let isPastSlot = false;
             if (this.state.selectedDate === todayStr && (slotHour < currentHour || (slotHour === currentHour && slotMinute <= currentMinute))) isPastSlot = true;
