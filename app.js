@@ -741,13 +741,10 @@ const app = {
     // ===================== BLOCK SCHEDULE METHODS =====================
 
     generateBlockSlots() {
-        // Block calendar uses 30-min intervals for a cleaner view
+        // Block calendar uses hourly intervals for simpler blocking
         const slots = [];
-        for (let h = 9; h <= 19; h++) {
-            for (let m = 0; m < 60; m += 30) {
-                const time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-                slots.push(time);
-            }
+        for (let h = 9; h <= 18; h++) {
+            slots.push(`${String(h).padStart(2, '0')}:00`);
         }
         return slots;
     },
