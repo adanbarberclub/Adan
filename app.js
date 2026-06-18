@@ -103,8 +103,13 @@ const app = {
 
         const cached = localStorage.getItem(CONFIG.storageKey);
         if (cached) {
-            this.state.bookings = JSON.parse(cached);
-            this.refreshUIComponents();
+            try {
+                this.state.bookings = JSON.parse(cached);
+                this.refreshUIComponents();
+            } catch (e) {
+                console.warn('Cache corrupted, starting fresh');
+                localStorage.removeItem(CONFIG.storageKey);
+            }
         }
 
         bookingsRef.on('value', (snapshot) => {
@@ -705,7 +710,7 @@ const app = {
         const dayNames = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'];
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const todayStr = today.toISOString().split('T')[0];
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
         const blockSlots = this.generateBlockSlots();
 
         let html = '<div class="overflow-x-auto">';
@@ -716,7 +721,7 @@ const app = {
         for (let i = 0; i < 7; i++) {
             const day = new Date(weekStart);
             day.setDate(day.getDate() + i);
-            const dateStr = day.toISOString().split('T')[0];
+            const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
             const isToday = dateStr === todayStr;
             html += `<th class="bg-obsidian p-2 text-[10px] uppercase tracking-widest font-bold border border-gold/10 ${isToday ? 'text-gold' : 'text-platinum'}">${dayNames[i]}<br><span class="text-xs">${day.getDate()}</span></th>`;
         }
@@ -729,7 +734,7 @@ const app = {
             for (let i = 0; i < 7; i++) {
                 const day = new Date(weekStart);
                 day.setDate(day.getDate() + i);
-                const dateStr = day.toISOString().split('T')[0];
+                const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
                 const isPast = day < today;
                 const isBlocked = this.state.blocks.some(b => b.date === dateStr && b.time === slot && b.barber_id === barberId);
                 const isToday = dateStr === todayStr;
